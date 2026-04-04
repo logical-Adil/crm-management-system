@@ -36,6 +36,7 @@ export class JwtAccessStrategy extends PassportStrategy(
       email: u.email,
       name: u.name,
       role: u.role,
+      isActive: u.isActive,
       organizationId: u.organizationId,
       createdById: u.createdById,
       createdBy: u.createdBy,

@@ -31,6 +31,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    if (user.isActive === false) {
+      throw new UnauthorizedException('Account is disabled');
+    }
+
     await this.tokenService.revokeAllRefreshTokensForUser(user.id);
     const tokens = await this.tokenService.issueTokens(user.id);
 
@@ -40,6 +44,7 @@ export class AuthService {
         email: user.email,
         name: user.name,
         role: user.role,
+        isActive: user.isActive,
         organizationId: user.organizationId,
         createdById: user.createdById,
       },
@@ -55,6 +60,11 @@ export class AuthService {
     const record = await this.tokenService.findValidRefreshToken(refreshToken);
     if (!record) {
       throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
+    const user = await this.userService.findById(record.userId);
+    if (user.isActive === false) {
+      throw new UnauthorizedException('Account is disabled');
     }
 
     await this.tokenService.revokeRefreshToken(refreshToken);

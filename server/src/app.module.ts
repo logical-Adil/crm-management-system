@@ -10,6 +10,7 @@ import { LoggingInterceptor } from './common/interceptors/logger.interceptor';
 import { configLoaders } from './config';
 import { PrismaModule } from './database/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { CustomerModule } from './modules/customer/customer.module';
 import { OrganizationModule } from './modules/organization/organization.module';
 import { UserModule } from './modules/user/user.module';
 
@@ -32,6 +33,7 @@ import { UserModule } from './modules/user/user.module';
     UserModule,
     AuthModule,
     OrganizationModule,
+    CustomerModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

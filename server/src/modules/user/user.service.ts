@@ -19,6 +19,7 @@ export class UserService {
     email: true,
     name: true,
     role: true,
+    isActive: true,
     organizationId: true,
     createdById: true,
     createdBy: {

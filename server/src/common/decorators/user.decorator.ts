@@ -7,6 +7,7 @@ export interface AuthedUserPayload {
   email: string;
   name: string | null;
   role: UserRole;
+  isActive: boolean;
   organizationId: string;
   createdById: string | null;
   createdBy: { id: string; email: string; name: string | null } | null;

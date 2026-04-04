@@ -88,6 +88,57 @@ Seeded admins: Acme `admin1@acme.demo`–`admin4@acme.demo`; Globex, Initech, Um
 
 ---
 
+## 4. Customers
+
+All customer routes require Bearer (same `organizationId` as the JWT). Customer JSON includes **`deletedAt`** (null = active, set when soft-deleted).
+
+**Read vs write:** **`GET /api/v1/customers`** and **`GET /api/v1/customers/:id`** are **organization-wide** — any authenticated member can list or view details (+ **notes**) for any customer in the org. The list only includes **active** customers (`deletedAt` is always `null` there). **`GET :id`** can also return a **soft-deleted** customer in your org (`deletedAt` set).
+
+**Mutations** (create, update, delete, restore, assign) apply only to customers **assigned to you** (`assignedToId` = your user id), except **POST create** which sets you as assignee.
+
+**Limits:** At most **5 active** (non-deleted) customers per user—enforced on create, assign, and restore. Create/assign/restore use DB transactions (**serializable** isolation) so concurrent requests cannot exceed the limit (race protection).
+
+| Endpoint | Bearer | Who can call | Path params | Query | Body |
+|----------|--------|--------------|-------------|-------|------|
+| `GET /api/v1/customers` | Yes | **Any authenticated user** — **all active** customers in **your organization** (paginated / searchable) | — | `page`, `limit` (optional), `search` (optional — matches name or email, case-insensitive) | — |
+| `POST /api/v1/customers` | Yes | **Any authenticated user** — creates with **you** as assignee; fails if you already have 5 active | — | — | `name`, `email`, `phone` (optional) |
+| `GET /api/v1/customers/:id` | Yes | **Any authenticated user** — **any** customer in **your organization** (active or soft-deleted), with **notes** | `id` — customer UUID | — | — |
+| `PATCH /api/v1/customers/:id` | Yes | **Any authenticated user** — **only your** active customer | `id` | — | JSON: optional `name`, `email`, `phone` |
+| `DELETE /api/v1/customers/:id` | Yes | **Any authenticated user** — **soft delete** only **your** active customer | `id` | — | — |
+| `POST /api/v1/customers/:id/restore` | Yes | **Any authenticated user** — **only your** soft-deleted customer; fails if you already have 5 active | `id` | — | — |
+| `PATCH /api/v1/customers/:id/assign` | Yes | **Any authenticated user** — reassign **your** active customer to another user **in your org**; target must have &lt; 5 active | `id` | — | `assignToUserId` (UUID) |
+
+**`GET /api/v1/customers/:id` response** includes the customer fields (including `deletedAt`) and embedded **`notes`** (newest first). You do **not** need to be the assignee to read; you do need to be the assignee to **PATCH** / **DELETE** / **restore** / **assign**.
+
+**Create example:**
+
+```json
+{
+  "name": "Jane Doe",
+  "email": "jane@example.com",
+  "phone": "+15551234567"
+}
+```
+
+**Update example:**
+
+```json
+{
+  "name": "Jane D.",
+  "email": "jane.doe@example.com"
+}
+```
+
+**Assign example** (give the customer to a colleague in the same organization):
+
+```json
+{
+  "assignToUserId": "<uuid of user in your org>"
+}
+```
+
+---
+
 ## Suggested order
 
 1. `POST /auth/login` → save access + refresh tokens.  
@@ -110,3 +161,10 @@ Seeded admins: Acme `admin1@acme.demo`–`admin4@acme.demo`; Globex, Initech, Um
 | GET | `http://localhost:5000/api/v1/users/:id` |
 | PATCH | `http://localhost:5000/api/v1/users/:id` |
 | DELETE | `http://localhost:5000/api/v1/users/:id` |
+| GET | `http://localhost:5000/api/v1/customers` |
+| POST | `http://localhost:5000/api/v1/customers` |
+| GET | `http://localhost:5000/api/v1/customers/:id` |
+| PATCH | `http://localhost:5000/api/v1/customers/:id` |
+| DELETE | `http://localhost:5000/api/v1/customers/:id` |
+| POST | `http://localhost:5000/api/v1/customers/:id/restore` |
+| PATCH | `http://localhost:5000/api/v1/customers/:id/assign` |

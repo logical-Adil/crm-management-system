@@ -48,6 +48,8 @@ model User {
   name           String?   @db.VarChar(255)
   password       String    @db.VarChar(255)
   role           UserRole
+  /// When false, user should not sign in (soft-disabled account).
+  isActive       Boolean   @default(true) @map("is_active")
   organizationId String    @map("organization_id")
   /// Set when an admin creates this user; null for seed/bootstrap users.
   createdById    String?   @map("created_by_id")
@@ -84,7 +86,7 @@ model Token {
   @@map("tokens")
 }
 
-/// CRM customer; `deletedAt` set => soft-deleted (hidden from normal queries).
+/// CRM customer. Soft-delete uses `deletedAt` only (null = active).
 model Customer {
   id             String    @id @default(uuid())
   name           String    @db.VarChar(255)
