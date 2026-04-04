@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 
+import type { AuthedUserPayload } from '@/common/decorators/user.decorator';
 import { UserService } from '@/modules/user/user.service';
 
 export type JwtPayload = {
@@ -27,7 +28,19 @@ export class JwtAccessStrategy extends PassportStrategy(
     });
   }
 
-  async validate(payload: JwtPayload) {
-    return this.userService.findById(payload.sub);
+  /** Plain object so `request.user.role` is always a real string for guards (no Prisma/client quirks). */
+  async validate(payload: JwtPayload): Promise<AuthedUserPayload> {
+    const u = await this.userService.findById(payload.sub);
+    return {
+      id: u.id,
+      email: u.email,
+      name: u.name,
+      role: u.role,
+      organizationId: u.organizationId,
+      createdById: u.createdById,
+      createdBy: u.createdBy,
+      createdAt: u.createdAt,
+      updatedAt: u.updatedAt,
+    };
   }
 }

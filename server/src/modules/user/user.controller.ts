@@ -3,6 +3,8 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
@@ -20,6 +22,11 @@ import { Permissions } from '@/constants/auth.constants';
 import { CreateUserDto, UpdateUserDto } from './dto';
 import { UserService } from './user.service';
 
+/**
+ * User routes:
+ * - Org isolation: list / :id / patch / delete use the caller JWT’s `organizationId`, so admins only see and manage users in **their** company (never another org).
+ * - Create: new users are stored with that same `organizationId` and `createdById` = the acting admin’s user id (audit).
+ */
 @Controller('users')
 @UseGuards(JwtGuard, PermissionsGuard)
 export class UserController {
@@ -27,7 +34,7 @@ export class UserController {
 
   @Get('me')
   me(@User() user: AuthedUserPayload) {
-    return this.userService.findById(user.id);
+    return this.userService.findById(user.id, user.organizationId);
   }
 
   @Post()
@@ -38,28 +45,47 @@ export class UserController {
 
   @Get()
   @RequirePermissions(Permissions.ManageUsers)
-  list(@Query('page') page?: string, @Query('limit') limit?: string) {
+  list(
+    @User() authed: AuthedUserPayload,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
     return this.userService.list({
       page: page ? Number(page) : undefined,
       limit: limit ? Number(limit) : undefined,
+      organizationId: authed.organizationId,
     });
   }
 
-  @Get(':userId')
+  @Get(':id')
   @RequirePermissions(Permissions.ManageUsers)
-  findById(@Param('userId') userId: string) {
-    return this.userService.findById(userId);
+  findById(@Param('id') id: string, @User() authed: AuthedUserPayload) {
+    return this.userService.findById(id, authed.organizationId);
   }
 
-  @Patch(':userId')
+  @Patch(':id')
   @RequirePermissions(Permissions.ManageUsers)
-  update(@Param('userId') userId: string, @Body() dto: UpdateUserDto) {
-    return this.userService.update(userId, dto);
+  update(
+    @Param('id') id: string,
+    @User() authed: AuthedUserPayload,
+    @Body() dto: UpdateUserDto,
+  ) {
+    return this.userService.update(id, dto, authed.organizationId);
   }
 
-  @Delete(':userId')
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
   @RequirePermissions(Permissions.ManageUsers)
-  async remove(@Param('userId') userId: string) {
-    return this.userService.delete(userId);
+  remove(@Param('id') id: string, @User() authed: AuthedUserPayload) {
+    return this.userService.delete(id, authed.organizationId).then((deleted) => {
+      const label = deleted.name?.trim() || deleted.email;
+      return {
+        code: HttpStatus.OK,
+        success: true,
+        message: `User "${label}" was deleted successfully.`,
+        timestamp: new Date().toISOString(),
+        data: deleted,
+      };
+    });
   }
 }

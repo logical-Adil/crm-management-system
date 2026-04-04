@@ -21,6 +21,27 @@ export class TokenService {
     return createHash('sha256').update(token).digest('hex');
   }
 
+  /**
+   * Cryptographically random refresh token (hex). 48 bytes => 96 hex chars — new value every issuance.
+   */
+  private generateRefreshTokenValue(): string {
+    return randomBytes(48).toString('hex');
+  }
+
+  /**
+   * Invalidate all active refresh sessions for this user (call on login so each login gets a fresh token).
+   */
+  async revokeAllRefreshTokensForUser(userId: string): Promise<void> {
+    await this.prisma.token.updateMany({
+      where: {
+        userId,
+        type: TokenType.REFRESH,
+        revokedAt: null,
+      },
+      data: { revokedAt: new Date() },
+    });
+  }
+
   async issueTokens(userId: string) {
     const accessExpSeconds = this.jwtConfig.accessExpirationMins * 60;
     const refreshExpSeconds = this.jwtConfig.refreshExpirationDays * 24 * 60 * 60;
@@ -30,11 +51,10 @@ export class TokenService {
       { expiresIn: `${accessExpSeconds}s` },
     );
 
-    const refreshToken = randomBytes(32).toString('hex');
+    const refreshToken = this.generateRefreshTokenValue();
     const refreshTokenHash = this.hashToken(refreshToken);
 
-    const expiresAt = new Date();
-    expiresAt.setSeconds(expiresAt.getSeconds() + refreshExpSeconds);
+    const expiresAt = new Date(Date.now() + refreshExpSeconds * 1000);
 
     await this.createRefreshToken({
       userId,

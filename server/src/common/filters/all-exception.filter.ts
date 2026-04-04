@@ -1,6 +1,22 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { Request, Response } from 'express';
 
+function httpExceptionBodyMessage(body: unknown): string {
+  if (typeof body === 'string') {
+    return body;
+  }
+  if (body && typeof body === 'object' && 'message' in body) {
+    const m = (body as { message: unknown }).message;
+    if (typeof m === 'string') {
+      return m;
+    }
+    if (Array.isArray(m)) {
+      return m.map(String).join(', ');
+    }
+  }
+  return 'Request failed';
+}
+
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
@@ -15,7 +31,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    const message
+    const body
       = exception instanceof HttpException
         ? exception.getResponse()
         : 'Internal server error';
@@ -28,7 +44,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
     response.status(status).json({
       code: status,
       success: false,
-      message: typeof message === 'object' ? (message as any).message : message,
+      message:
+        exception instanceof HttpException
+          ? httpExceptionBodyMessage(body)
+          : typeof body === 'string'
+            ? body
+            : 'Internal server error',
       timestamp: new Date().toISOString(),
     });
   }

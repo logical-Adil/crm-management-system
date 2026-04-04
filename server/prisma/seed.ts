@@ -15,26 +15,84 @@ if (!connectionString) {
 const adapter = new PrismaPg({ connectionString });
 const prisma = new PrismaClient({ adapter });
 
-/** Demo companies + one `admin` user each (unique emails). Password: `SEED_ADMIN_PASSWORD` for all. */
-const SEED_COMPANIES: Array<{
+/**
+ * ≥5 organizations; first org has ≥4 admins. Others have one admin each.
+ * Optional `members` use `createdByAdminEmail` to set `createdById` (audit: which admin “created” them).
+ * Password for all seeded users: `SEED_ADMIN_PASSWORD` in `.env`.
+ */
+const SEED_DATA: Array<{
   orgName: string;
-  adminEmail: string;
-  adminName: string;
+  admins: Array<{ email: string; name: string }>;
+  members?: Array<{
+    email: string;
+    name: string;
+    createdByAdminEmail: string;
+  }>;
 }> = [
   {
     orgName: 'Acme Corporation',
-    adminEmail: 'admin@acme.demo',
-    adminName: 'Acme Admin',
+    admins: [
+      { email: 'admin1@acme.demo', name: 'Acme Admin One' },
+      { email: 'admin2@acme.demo', name: 'Acme Admin Two' },
+      { email: 'admin3@acme.demo', name: 'Acme Admin Three' },
+      { email: 'admin4@acme.demo', name: 'Acme Admin Four' },
+    ],
+    members: [
+      {
+        email: 'member1@acme.demo',
+        name: 'Acme Member One',
+        createdByAdminEmail: 'admin1@acme.demo',
+      },
+      {
+        email: 'member2@acme.demo',
+        name: 'Acme Member Two',
+        createdByAdminEmail: 'admin1@acme.demo',
+      },
+    ],
   },
   {
     orgName: 'Globex Industries',
-    adminEmail: 'admin@globex.demo',
-    adminName: 'Globex Admin',
+    admins: [{ email: 'admin@globex.demo', name: 'Globex Admin' }],
+    members: [
+      {
+        email: 'member@globex.demo',
+        name: 'Globex Member',
+        createdByAdminEmail: 'admin@globex.demo',
+      },
+    ],
   },
   {
     orgName: 'Initech Solutions',
-    adminEmail: 'admin@initech.demo',
-    adminName: 'Initech Admin',
+    admins: [{ email: 'admin@initech.demo', name: 'Initech Admin' }],
+    members: [
+      {
+        email: 'member@initech.demo',
+        name: 'Initech Member',
+        createdByAdminEmail: 'admin@initech.demo',
+      },
+    ],
+  },
+  {
+    orgName: 'Umbrella Corporation',
+    admins: [{ email: 'admin@umbrella.demo', name: 'Umbrella Admin' }],
+    members: [
+      {
+        email: 'member@umbrella.demo',
+        name: 'Umbrella Member',
+        createdByAdminEmail: 'admin@umbrella.demo',
+      },
+    ],
+  },
+  {
+    orgName: 'Stark Industries',
+    admins: [{ email: 'admin@stark.demo', name: 'Stark Admin' }],
+    members: [
+      {
+        email: 'member@stark.demo',
+        name: 'Stark Member',
+        createdByAdminEmail: 'admin@stark.demo',
+      },
+    ],
   },
 ];
 
@@ -42,47 +100,100 @@ async function main() {
   const defaultPassword =
     process.env.SEED_ADMIN_PASSWORD ?? 'ChangeMe@123!';
 
-  let created = 0;
-  let skipped = 0;
+  let orgsEnsured = 0;
+  let usersCreated = 0;
+  let usersSkipped = 0;
 
-  for (const row of SEED_COMPANIES) {
-    const email = row.adminEmail.toLowerCase();
-
-    const existing = await prisma.user.findUnique({
-      where: { email },
-      select: { id: true },
+  for (const block of SEED_DATA) {
+    let organization = await prisma.organization.findFirst({
+      where: { name: block.orgName },
     });
 
-    if (existing) {
-      console.log(`Skip: user already exists (${email})`);
-      skipped += 1;
-      continue;
+    if (!organization) {
+      organization = await prisma.organization.create({
+        data: { name: block.orgName },
+      });
+      orgsEnsured += 1;
+      console.log(`Created organization "${block.orgName}" (${organization.id})`);
+    } else {
+      console.log(`Organization exists: "${block.orgName}" (${organization.id})`);
     }
 
     const hashedPassword = await hashPassword(defaultPassword);
 
-    const organization = await prisma.organization.create({
-      data: { name: row.orgName },
-    });
+    const adminIdByEmail = new Map<string, string>();
 
-    await prisma.user.create({
-      data: {
-        email,
-        name: row.adminName,
-        password: hashedPassword,
-        role: UserRole.admin,
-        organizationId: organization.id,
-      },
-    });
+    for (const admin of block.admins) {
+      const email = admin.email.toLowerCase();
 
-    console.log(
-      `Created org "${row.orgName}" + admin ${email} (org id: ${organization.id})`,
-    );
-    created += 1;
+      const existing = await prisma.user.findUnique({
+        where: { email },
+        select: { id: true },
+      });
+
+      if (existing) {
+        console.log(`  Skip admin: ${email}`);
+        adminIdByEmail.set(email, existing.id);
+        usersSkipped += 1;
+        continue;
+      }
+
+      const created = await prisma.user.create({
+        data: {
+          email,
+          name: admin.name,
+          password: hashedPassword,
+          role: UserRole.admin,
+          organizationId: organization.id,
+        },
+        select: { id: true },
+      });
+
+      adminIdByEmail.set(email, created.id);
+      console.log(`  Created admin: ${email} → ${block.orgName}`);
+      usersCreated += 1;
+    }
+
+    for (const member of block.members ?? []) {
+      const email = member.email.toLowerCase();
+      const creatorEmail = member.createdByAdminEmail.toLowerCase();
+      const createdById = adminIdByEmail.get(creatorEmail);
+
+      if (!createdById) {
+        throw new Error(
+          `Seed: no admin id for "${creatorEmail}" (needed to create ${email})`,
+        );
+      }
+
+      const existing = await prisma.user.findUnique({
+        where: { email },
+        select: { id: true },
+      });
+
+      if (existing) {
+        console.log(`  Skip member: ${email}`);
+        usersSkipped += 1;
+        continue;
+      }
+
+      await prisma.user.create({
+        data: {
+          email,
+          name: member.name,
+          password: hashedPassword,
+          role: UserRole.member,
+          organizationId: organization.id,
+          createdById,
+        },
+      });
+
+      console.log(`  Created member: ${email} (createdBy ${creatorEmail}) → ${block.orgName}`);
+      usersCreated += 1;
+    }
   }
 
   console.log(
-    `\nSeeding finished: ${created} created, ${skipped} skipped (password from SEED_ADMIN_PASSWORD).`,
+    `\nSeed summary: ${orgsEnsured} new org(s), ${usersCreated} user(s) created, ${usersSkipped} user(s) skipped. Password: SEED_ADMIN_PASSWORD`,
   );
 }
 

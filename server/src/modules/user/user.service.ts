@@ -28,6 +28,7 @@ export class UserService {
     updatedAt: true,
   } as const;
 
+  /** New user always belongs to `organizationId`; `createdById` records which admin created them (cannot be set by client). */
   async create(
     dto: CreateUserDto,
     organizationId: string,
@@ -65,44 +66,63 @@ export class UserService {
     });
   }
 
-  async findById(id: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
-      select: this.userSelect,
-    });
+  /**
+   * @param organizationId If set, only returns the user when they belong to that org (multi-tenant scope).
+   *                         Omit for auth/JWT load (user id from token is sufficient).
+   */
+  async findById(id: string, organizationId?: string) {
+    const user =
+      organizationId !== undefined
+        ? await this.prisma.user.findFirst({
+            where: { id, organizationId },
+            select: this.userSelect,
+          })
+        : await this.prisma.user.findUnique({
+            where: { id },
+            select: this.userSelect,
+          });
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException(
+        organizationId !== undefined
+          ? 'No user with this id in your organization. The id may be wrong, the user may belong to another organization, or they may already have been deleted.'
+          : 'User not found',
+      );
     }
 
     return user;
   }
 
-  async list(options?: { page?: number; limit?: number }) {
+  /** Only users in the given organization (not other tenants). */
+  async list(options: {
+    page?: number;
+    limit?: number;
+    organizationId: string;
+  }) {
     return paginate(this.prisma.user, {
       options: {
-        page: options?.page,
-        limit: options?.limit,
+        page: options.page,
+        limit: options.limit,
       },
-
+      filters: { organizationId: options.organizationId },
       omit: ['password'],
     });
   }
 
-  async update(id: string, dto: UpdateUserDto) {
-    await this.findById(id);
+  async update(id: string, dto: UpdateUserDto, organizationId: string) {
+    await this.findById(id, organizationId);
     return this.prisma.user.update({
       where: { id },
       data: {
         ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.role !== undefined && { role: dto.role }),
       },
       select: this.userSelect,
     });
   }
 
-  async delete(id: string) {
-    await this.findById(id);
-
+  async delete(id: string, organizationId: string) {
+    await this.findById(id, organizationId);
     return this.prisma.user.delete({
       where: { id },
       select: this.userSelect,
