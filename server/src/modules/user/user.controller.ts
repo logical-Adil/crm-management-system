@@ -33,7 +33,7 @@ export class UserController {
   @Post()
   @RequirePermissions(Permissions.ManageUsers)
   create(@User() authed: AuthedUserPayload, @Body() dto: CreateUserDto) {
-    return this.userService.create(dto, authed.organizationId);
+    return this.userService.create(dto, authed.organizationId, authed.id);
   }
 
   @Get()

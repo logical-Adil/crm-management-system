@@ -8,8 +8,8 @@ export interface AuthedUserPayload {
   name: string | null;
   role: UserRole;
   organizationId: string;
-  isActive: boolean;
-  lastLoginAt: Date | null;
+  createdById: string | null;
+  createdBy: { id: string; email: string; name: string | null } | null;
   createdAt: Date;
   updatedAt: Date;
 }

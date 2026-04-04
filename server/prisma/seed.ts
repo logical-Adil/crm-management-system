@@ -15,43 +15,75 @@ if (!connectionString) {
 const adapter = new PrismaPg({ connectionString });
 const prisma = new PrismaClient({ adapter });
 
+/** Demo companies + one `admin` user each (unique emails). Password: `SEED_ADMIN_PASSWORD` for all. */
+const SEED_COMPANIES: Array<{
+  orgName: string;
+  adminEmail: string;
+  adminName: string;
+}> = [
+  {
+    orgName: 'Acme Corporation',
+    adminEmail: 'admin@acme.demo',
+    adminName: 'Acme Admin',
+  },
+  {
+    orgName: 'Globex Industries',
+    adminEmail: 'admin@globex.demo',
+    adminName: 'Globex Admin',
+  },
+  {
+    orgName: 'Initech Solutions',
+    adminEmail: 'admin@initech.demo',
+    adminName: 'Initech Admin',
+  },
+];
+
 async function main() {
-  const adminEmail = process.env.SEED_ADMIN_EMAIL ?? 'admin@nestapp.com';
-  const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? 'ChangeMe@123!';
-  const orgName = process.env.SEED_ORG_NAME ?? 'Default organization';
+  const defaultPassword =
+    process.env.SEED_ADMIN_PASSWORD ?? 'ChangeMe@123!';
 
-  const userEmailNormalized = adminEmail.toLowerCase();
+  let created = 0;
+  let skipped = 0;
 
-  const existingUser = await prisma.user.findUnique({
-    where: { email: userEmailNormalized },
-  });
+  for (const row of SEED_COMPANIES) {
+    const email = row.adminEmail.toLowerCase();
 
-  if (!existingUser) {
-    const hashedPassword = await hashPassword(adminPassword);
-
-    const organization = await prisma.organization.create({
-      data: { name: orgName },
+    const existing = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
     });
 
-    const admin = await prisma.user.create({
+    if (existing) {
+      console.log(`Skip: user already exists (${email})`);
+      skipped += 1;
+      continue;
+    }
+
+    const hashedPassword = await hashPassword(defaultPassword);
+
+    const organization = await prisma.organization.create({
+      data: { name: row.orgName },
+    });
+
+    await prisma.user.create({
       data: {
-        email: userEmailNormalized,
-        name: 'Organization admin',
+        email,
+        name: row.adminName,
         password: hashedPassword,
         role: UserRole.admin,
         organizationId: organization.id,
-        isActive: true,
       },
     });
 
-    console.log('Organization and admin user created successfully.');
-    console.log(`Organization: ${organization.name} (${organization.id})`);
-    console.log(`Email: ${admin.email}`);
-  } else {
-    console.log('Seed admin user already exists. Skipping creation.');
+    console.log(
+      `Created org "${row.orgName}" + admin ${email} (org id: ${organization.id})`,
+    );
+    created += 1;
   }
 
-  console.log('Seeding completed.');
+  console.log(
+    `\nSeeding finished: ${created} created, ${skipped} skipped (password from SEED_ADMIN_PASSWORD).`,
+  );
 }
 
 main()

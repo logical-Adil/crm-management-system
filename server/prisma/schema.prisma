@@ -19,35 +19,52 @@ enum UserRole {
   member
 }
 
+enum ActivityAction {
+  CUSTOMER_CREATED
+  CUSTOMER_UPDATED
+  CUSTOMER_DELETED
+  CUSTOMER_RESTORED
+  NOTE_ADDED
+  CUSTOMER_ASSIGNED
+}
+
 model Organization {
   id        String   @id @default(uuid())
   name      String   @db.VarChar(255)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  users User[]
+  users          User[]
+  customers      Customer[]
+  notes          Note[]
+  activityLogs   ActivityLog[]
 
   @@map("organizations")
 }
 
 model User {
-  id              String    @id @default(uuid())
-  email           String    @unique @db.VarChar(255)
-  name            String?   @db.VarChar(255)
-  password        String    @db.VarChar(255)
-  role            UserRole
-  organizationId  String    @map("organization_id")
-  isActive        Boolean   @default(true) @map("is_active")
-  isEmailVerified Boolean   @default(false) @map("is_email_verified")
-  lastLoginAt     DateTime? @map("last_login_at")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+  id             String    @id @default(uuid())
+  email          String    @unique @db.VarChar(255)
+  name           String?   @db.VarChar(255)
+  password       String    @db.VarChar(255)
+  role           UserRole
+  organizationId String    @map("organization_id")
+  /// Set when an admin creates this user; null for seed/bootstrap users.
+  createdById    String?   @map("created_by_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  tokens       Token[]
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdBy         User?          @relation("UserCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  usersCreated      User[]         @relation("UserCreatedBy")
+  tokens            Token[]
+  assignedCustomers Customer[]     @relation("CustomerAssignee")
+  notesCreated      Note[]         @relation("NoteCreator")
+  activityLogs      ActivityLog[]
 
   @@index([organizationId])
   @@index([organizationId, role])
+  @@index([createdById])
   @@map("users")
 }
 
@@ -65,4 +82,66 @@ model Token {
   @@index([userId])
   @@index([tokenHash])
   @@map("tokens")
+}
+
+/// CRM customer; `deletedAt` set => soft-deleted (hidden from normal queries).
+model Customer {
+  id             String    @id @default(uuid())
+  name           String    @db.VarChar(255)
+  email          String    @db.VarChar(255)
+  phone          String?   @db.VarChar(64)
+  organizationId String    @map("organization_id")
+  assignedToId   String?   @map("assigned_to_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  assignedTo   User?        @relation("CustomerAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  notes        Note[]
+
+  @@unique([organizationId, email])
+  @@index([organizationId])
+  @@index([organizationId, deletedAt])
+  @@index([organizationId, name])
+  @@index([assignedToId])
+  @@map("customers")
+}
+
+model Note {
+  id             String   @id @default(uuid())
+  body           String   @db.Text
+  customerId     String   @map("customer_id")
+  organizationId String   @map("organization_id")
+  createdById    String   @map("created_by_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  customer     Customer     @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdBy    User         @relation("NoteCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([customerId])
+  @@index([organizationId])
+  @@index([organizationId, createdAt])
+  @@map("notes")
+}
+
+/// Append-only audit trail; rows kept when a customer is soft-deleted.
+model ActivityLog {
+  id             String         @id @default(uuid())
+  organizationId String         @map("organization_id")
+  entityType     String         @map("entity_type") @db.VarChar(64)
+  entityId       String         @map("entity_id") @db.VarChar(36)
+  action         ActivityAction
+  performedById  String         @map("performed_by_id")
+  createdAt      DateTime       @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  performedBy  User         @relation(fields: [performedById], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId])
+  @@index([entityType, entityId])
+  @@map("activity_logs")
 }

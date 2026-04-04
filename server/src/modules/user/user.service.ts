@@ -20,13 +20,19 @@ export class UserService {
     name: true,
     role: true,
     organizationId: true,
-    isActive: true,
-    lastLoginAt: true,
+    createdById: true,
+    createdBy: {
+      select: { id: true, email: true, name: true },
+    },
     createdAt: true,
     updatedAt: true,
   } as const;
 
-  async create(dto: CreateUserDto, organizationId: string) {
+  async create(
+    dto: CreateUserDto,
+    organizationId: string,
+    createdById: string,
+  ) {
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
       select: { id: true },
@@ -45,6 +51,7 @@ export class UserService {
         name: dto.name ?? null,
         role: dto.role,
         organizationId,
+        createdById,
       },
       select: this.userSelect,
     });
@@ -88,16 +95,8 @@ export class UserService {
       where: { id },
       data: {
         ...(dto.name !== undefined && { name: dto.name }),
-        ...(dto.isActive !== undefined && { isActive: dto.isActive }),
       },
       select: this.userSelect,
-    });
-  }
-
-  async updateLastLogin(id: string) {
-    await this.prisma.user.update({
-      where: { id },
-      data: { lastLoginAt: new Date() },
     });
   }
 
