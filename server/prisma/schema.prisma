@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TokenType {
+  REFRESH
+  VERIFY_EMAIL
+  RESET_PASSWORD
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+model User {
+  id              String    @id @default(uuid())
+  email           String    @unique @db.VarChar(255)
+  name            String?   @db.VarChar(255)
+  password        String    @db.VarChar(255)
+  role            UserRole
+  isActive        Boolean   @default(true) @map("is_active")
+  isEmailVerified Boolean   @default(false) @map("is_email_verified")
+  lastLoginAt     DateTime? @map("last_login_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  tokens Token[]
+
+  @@map("users")
+}
+
+model Token {
+  id        String    @id @default(uuid())
+  type      TokenType
+  tokenHash String    @map("token_hash")
+  userId    String    @map("user_id")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([type])
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("tokens")
+}
