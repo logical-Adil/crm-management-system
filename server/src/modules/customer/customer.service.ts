@@ -4,12 +4,17 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@root/generated/prisma/client';
+import { ActivityAction, Prisma } from '@root/generated/prisma/client';
 
 import { MAX_CUSTOMERS_PER_USER } from '@/constants/customer.constants';
 import { PrismaService } from '@/database/prisma.service';
 
-import type { AssignCustomerDto, CreateCustomerDto, UpdateCustomerDto } from './dto';
+import type {
+  AssignCustomerDto,
+  CreateCustomerDto,
+  CreateNoteDto,
+  UpdateCustomerDto,
+} from './dto';
 
 const customerListSelect = {
   id: true,
@@ -168,6 +173,49 @@ export class CustomerService {
       ...customer,
       notes,
     };
+  }
+
+  /** Create a note on a customer; any org member may add (same visibility rules as reading the customer). */
+  async createNoteForCustomer(
+    customerId: string,
+    organizationId: string,
+    createdById: string,
+    dto: CreateNoteDto,
+  ) {
+    const customer = await this.prisma.customer.findFirst({
+      where: {
+        id: customerId,
+        organizationId,
+      },
+      select: { id: true },
+    });
+    if (!customer) {
+      throw new NotFoundException('Customer not found in your organization.');
+    }
+
+    return this.prisma.$transaction(async tx => {
+      const note = await tx.note.create({
+        data: {
+          body: dto.body,
+          customerId,
+          organizationId,
+          createdById,
+        },
+        select: noteSelect,
+      });
+
+      await tx.activityLog.create({
+        data: {
+          organizationId,
+          entityType: 'customer',
+          entityId: customerId,
+          action: ActivityAction.NOTE_ADDED,
+          performedById: createdById,
+        },
+      });
+
+      return note;
+    });
   }
 
   async update(

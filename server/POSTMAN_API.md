@@ -94,7 +94,9 @@ All customer routes require Bearer (same `organizationId` as the JWT). Customer 
 
 **Read vs write:** **`GET /api/v1/customers`** and **`GET /api/v1/customers/:id`** are **organization-wide** — any authenticated member can list or view details (+ **notes**) for any customer in the org. The list only includes **active** customers (`deletedAt` is always `null` there). **`GET :id`** can also return a **soft-deleted** customer in your org (`deletedAt` set).
 
-**Mutations** (create, update, delete, restore, assign) apply only to customers **assigned to you** (`assignedToId` = your user id), except **POST create** which sets you as assignee.
+**Notes:** **`POST /api/v1/customers/:id/notes`** adds a note (org-wide, like reading the customer). **Listing notes** is via **`GET /api/v1/customers/:id`** — embedded **`notes`**, newest first (see **section 5** below).
+
+**Mutations** (create, update, delete, restore, assign) apply only to customers **assigned to you** (`assignedToId` = your user id), except **POST create** which sets you as assignee. **Adding a note** is **not** limited to the assignee.
 
 **Limits:** At most **5 active** (non-deleted) customers per user—enforced on create, assign, and restore. Create/assign/restore use DB transactions (**serializable** isolation) so concurrent requests cannot exceed the limit (race protection).
 
@@ -107,6 +109,7 @@ All customer routes require Bearer (same `organizationId` as the JWT). Customer 
 | `DELETE /api/v1/customers/:id` | Yes | **Any authenticated user** — **soft delete** only **your** active customer | `id` | — | — |
 | `POST /api/v1/customers/:id/restore` | Yes | **Any authenticated user** — **only your** soft-deleted customer; fails if you already have 5 active | `id` | — | — |
 | `PATCH /api/v1/customers/:id/assign` | Yes | **Any authenticated user** — reassign **your** active customer to another user **in your org**; target must have &lt; 5 active | `id` | — | `assignToUserId` (UUID) |
+| `POST /api/v1/customers/:id/notes` | Yes | **Any authenticated user** — add a note to **any** customer in **your organization** | `id` — customer UUID | — | `body` (string, 1–10000 chars) |
 
 **`GET /api/v1/customers/:id` response** includes the customer fields (including `deletedAt`) and embedded **`notes`** (newest first). You do **not** need to be the assignee to read; you do need to be the assignee to **PATCH** / **DELETE** / **restore** / **assign**.
 
@@ -139,6 +142,32 @@ All customer routes require Bearer (same `organizationId` as the JWT). Customer 
 
 ---
 
+## 5. Customer notes
+
+Notes belong to a **customer** and **organization**; each note tracks **`createdById`**. Any authenticated user in the org may **create** a note for any customer in that org (including soft-deleted customers), same visibility as **`GET /api/v1/customers/:id`**.
+
+**Listing notes:** use **`GET /api/v1/customers/:id`** — response includes embedded **`notes`** (newest first).
+
+**Activity log:** a successful **`POST`** also inserts **`activity_logs`** with action **`NOTE_ADDED`** (`entityType`: `customer`, `entityId`: customer UUID, `performedById`: JWT user).
+
+| Endpoint | Bearer | Who can call | Path params | Query | Body |
+|----------|--------|--------------|-------------|-------|------|
+| `POST /api/v1/customers/:id/notes` | Yes | **Any authenticated user** — add note to **any** customer in **your organization** | `id` — customer UUID | — | `body` |
+
+**404** if the customer does not exist in your organization.
+
+**Add note example:**
+
+```json
+{
+  "body": "Called back — interested in the enterprise plan."
+}
+```
+
+**Response** (created note): `id`, `body`, `customerId`, `organizationId`, `createdById`, `createdAt`, `updatedAt`.
+
+---
+
 ## Suggested order
 
 1. `POST /auth/login` → save access + refresh tokens.  
@@ -168,3 +197,4 @@ All customer routes require Bearer (same `organizationId` as the JWT). Customer 
 | DELETE | `http://localhost:5000/api/v1/customers/:id` |
 | POST | `http://localhost:5000/api/v1/customers/:id/restore` |
 | PATCH | `http://localhost:5000/api/v1/customers/:id/assign` |
+| POST | `http://localhost:5000/api/v1/customers/:id/notes` |

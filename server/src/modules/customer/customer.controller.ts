@@ -15,11 +15,16 @@ import { User } from '@/common/decorators/user.decorator';
 import { JwtGuard } from '@/common/guards/jwt.guard';
 
 import { CustomerService } from './customer.service';
-import { AssignCustomerDto, CreateCustomerDto, UpdateCustomerDto } from './dto';
+import {
+  AssignCustomerDto,
+  CreateCustomerDto,
+  CreateNoteDto,
+  UpdateCustomerDto,
+} from './dto';
 
 /**
- * List + GET `:id` are **organization-wide** (any authenticated member can read).
- * Mutations (create, update, delete, restore, assign) apply only to customers **assigned to you** (`assignedToId`).
+ * List + GET `:id` are **organization-wide** (any authenticated member). **`POST :id/notes`** to add a note.
+ * Customer mutations (create, update, delete, restore, assign) apply only when **assigned to you** (`assignedToId`).
  * Max 5 active customers per user (create / assign / restore enforce this).
  */
 @Controller('customers')
@@ -71,6 +76,20 @@ export class CustomerController {
       dto,
       authed.organizationId,
       authed.id,
+    );
+  }
+
+  @Post(':id/notes')
+  createNote(
+    @Param('id') id: string,
+    @User() authed: AuthedUserPayload,
+    @Body() dto: CreateNoteDto,
+  ) {
+    return this.customerService.createNoteForCustomer(
+      id,
+      authed.organizationId,
+      authed.id,
+      dto,
     );
   }
 
