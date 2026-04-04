@@ -20,6 +20,5 @@ export class CreateUserDto {
   name?: string;
 
   @IsEnum(UserRole)
-  @IsString()
   role: UserRole;
 }

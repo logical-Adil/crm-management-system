@@ -11,7 +11,6 @@ export const Permissions = {
 export type PermissionType = typeof Permissions[keyof typeof Permissions];
 
 export const ROLE_PERMISSIONS: Record<UserRole, PermissionType[]> = {
-  SUPER_ADMIN: [Permissions.All],
-  ADMIN: [Permissions.ManageUsers],
-  USER: [],
+  admin: [Permissions.ManageUsers],
+  member: [],
 };

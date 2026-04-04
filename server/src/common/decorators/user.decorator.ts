@@ -1,9 +1,13 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 
+import type { UserRole } from '@root/generated/prisma/enums';
+
 export interface AuthedUserPayload {
   id: string;
   email: string;
   name: string | null;
+  role: UserRole;
+  organizationId: string;
   isActive: boolean;
   lastLoginAt: Date | null;
   createdAt: Date;

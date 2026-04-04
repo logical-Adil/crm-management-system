@@ -18,13 +18,15 @@ export class UserService {
     id: true,
     email: true,
     name: true,
+    role: true,
+    organizationId: true,
     isActive: true,
     lastLoginAt: true,
     createdAt: true,
     updatedAt: true,
   } as const;
 
-  async create(dto: CreateUserDto) {
+  async create(dto: CreateUserDto, organizationId: string) {
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
       select: { id: true },
@@ -42,6 +44,7 @@ export class UserService {
         password: passwordHash,
         name: dto.name ?? null,
         role: dto.role,
+        organizationId,
       },
       select: this.userSelect,
     });
@@ -75,7 +78,7 @@ export class UserService {
         limit: options?.limit,
       },
 
-      omit: ['passwordHash'],
+      omit: ['password'],
     });
   }
 

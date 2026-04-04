@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 
+import type { AuthedUserPayload } from '@/common/decorators/user.decorator';
 import { RequirePermissions } from '@/common/decorators/permissions.decorator';
 import { User } from '@/common/decorators/user.decorator';
 import { JwtGuard } from '@/common/guards/jwt.guard';
@@ -25,14 +26,14 @@ export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Get('me')
-  me(@User() user: { id: string }) {
+  me(@User() user: AuthedUserPayload) {
     return this.userService.findById(user.id);
   }
 
   @Post()
   @RequirePermissions(Permissions.ManageUsers)
-  create(@Body() dto: CreateUserDto) {
-    return this.userService.create(dto);
+  create(@User() authed: AuthedUserPayload, @Body() dto: CreateUserDto) {
+    return this.userService.create(dto, authed.organizationId);
   }
 
   @Get()

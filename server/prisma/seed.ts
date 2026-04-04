@@ -18,6 +18,7 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   const adminEmail = process.env.SEED_ADMIN_EMAIL ?? 'admin@nestapp.com';
   const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? 'ChangeMe@123!';
+  const orgName = process.env.SEED_ORG_NAME ?? 'Default organization';
 
   const userEmailNormalized = adminEmail.toLowerCase();
 
@@ -28,20 +29,26 @@ async function main() {
   if (!existingUser) {
     const hashedPassword = await hashPassword(adminPassword);
 
+    const organization = await prisma.organization.create({
+      data: { name: orgName },
+    });
+
     const admin = await prisma.user.create({
       data: {
         email: userEmailNormalized,
-        name: 'System Admin',
+        name: 'Organization admin',
         password: hashedPassword,
-        role: UserRole.SUPER_ADMIN,
+        role: UserRole.admin,
+        organizationId: organization.id,
         isActive: true,
       },
     });
 
-    console.log('Super Admin created successfully.');
+    console.log('Organization and admin user created successfully.');
+    console.log(`Organization: ${organization.name} (${organization.id})`);
     console.log(`Email: ${admin.email}`);
   } else {
-    console.log('Super Admin already exists. Skipping creation.');
+    console.log('Seed admin user already exists. Skipping creation.');
   }
 
   console.log('Seeding completed.');

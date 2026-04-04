@@ -13,10 +13,21 @@ enum TokenType {
   RESET_PASSWORD
 }
 
+/// `admin` can manage users (and broader org visibility where applicable); `member` is a standard org user.
 enum UserRole {
-  USER
-  ADMIN
-  SUPER_ADMIN
+  admin
+  member
+}
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String   @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  users User[]
+
+  @@map("organizations")
 }
 
 model User {
@@ -25,14 +36,18 @@ model User {
   name            String?   @db.VarChar(255)
   password        String    @db.VarChar(255)
   role            UserRole
+  organizationId  String    @map("organization_id")
   isActive        Boolean   @default(true) @map("is_active")
   isEmailVerified Boolean   @default(false) @map("is_email_verified")
   lastLoginAt     DateTime? @map("last_login_at")
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  tokens Token[]
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  tokens       Token[]
 
+  @@index([organizationId])
+  @@index([organizationId, role])
   @@map("users")
 }
 
