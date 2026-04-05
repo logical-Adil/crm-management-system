@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/**
+ * CRM design tokens — aligned with the Nest backend + dashboard UI.
+ * Light theme only for now.
+ */
+:root {
+  --background: #fafafa;
+  --foreground: #111827;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --surface: #ffffff;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-foreground: #ffffff;
+  --danger: #dc2626;
+  --danger-hover: #b91c1c;
+  --success: #16a34a;
+  --disabled: #d1d5db;
+  --ring: #2563eb;
+}
+
+@layer base {
+  body {
+    @apply min-h-screen bg-background text-foreground antialiased;
+  }
+}
