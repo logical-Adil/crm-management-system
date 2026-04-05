@@ -1,4 +1,4 @@
-import { UserRole } from '@root/generated/prisma/enums';
+import { UserRole } from '@root/generated/prisma/client';
 import { IsEnum, IsOptional, IsString } from 'class-validator';
 
 export class UpdateUserDto {

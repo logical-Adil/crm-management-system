@@ -12,13 +12,12 @@ import {
   UseGuards,
 } from '@nestjs/common';
 
-import type { AuthedUserPayload } from '@/common/decorators/user.decorator';
 import { RequirePermissions } from '@/common/decorators/permissions.decorator';
+import type { AuthedUserPayload } from '@/common/decorators/user.decorator';
 import { User } from '@/common/decorators/user.decorator';
 import { JwtGuard } from '@/common/guards/jwt.guard';
 import { PermissionsGuard } from '@/common/guards/permissions.guard';
 import { Permissions } from '@/constants/auth.constants';
-
 import { CustomerService } from '@/modules/customer/customer.service';
 
 import { CreateUserDto, UpdateUserDto } from './dto';

@@ -121,18 +121,18 @@ export class CustomerService {
       deletedAt: null,
       ...(search
         ? {
-          OR: [
-            { name: { contains: search, mode: 'insensitive' } },
-            { email: { contains: search, mode: 'insensitive' } },
-          ],
-        }
+            OR: [
+              { name: { contains: search, mode: 'insensitive' } },
+              { email: { contains: search, mode: 'insensitive' } },
+            ],
+          }
         : {}),
     };
 
     const searchFilter = search
       ? Prisma.sql`AND (
-          name ILIKE ${'%' + search + '%'}
-          OR email ILIKE ${'%' + search + '%'}
+          name ILIKE ${`%${search}%`}
+          OR email ILIKE ${`%${search}%`}
         )`
       : Prisma.empty;
 
@@ -179,13 +179,13 @@ export class CustomerService {
     const email = dto.email.toLowerCase();
 
     return this.prisma.$transaction(
-      async tx => {
+      async (tx) => {
         const activeAssignedToMe = await tx.customer.count({
           where: this.activeCountWhere(organizationId, assignedToId),
         });
         /** At cap, create as unassigned (same idea as seed overflow) instead of blocking creation. */
-        const assigneeId =
-          activeAssignedToMe >= MAX_CUSTOMERS_PER_USER ? null : assignedToId;
+        const assigneeId
+          = activeAssignedToMe >= MAX_CUSTOMERS_PER_USER ? null : assignedToId;
 
         try {
           const created = await tx.customer.create({
@@ -272,7 +272,7 @@ export class CustomerService {
       throw new NotFoundException('Customer not found in your organization.');
     }
 
-    return this.prisma.$transaction(async tx => {
+    return this.prisma.$transaction(async (tx) => {
       const note = await tx.note.create({
         data: {
           body: dto.body,
@@ -319,7 +319,7 @@ export class CustomerService {
     const email = dto.email !== undefined ? dto.email.toLowerCase() : undefined;
 
     try {
-      return await this.prisma.$transaction(async tx => {
+      return await this.prisma.$transaction(async (tx) => {
         const updated = await tx.customer.update({
           where: { id },
           data: {
@@ -377,7 +377,7 @@ export class CustomerService {
       );
     }
 
-    return this.prisma.$transaction(async tx => {
+    return this.prisma.$transaction(async (tx) => {
       const updated = await tx.customer.update({
         where: { id },
         data: { deletedAt: new Date() },
@@ -400,7 +400,7 @@ export class CustomerService {
     assignedToId: string,
   ) {
     return this.prisma.$transaction(
-      async tx => {
+      async (tx) => {
         const existing = await tx.customer.findFirst({
           where: {
             id,
@@ -467,7 +467,7 @@ export class CustomerService {
     }
 
     return this.prisma.$transaction(
-      async tx => {
+      async (tx) => {
         const customer = await tx.customer.findFirst({
           where: {
             id,

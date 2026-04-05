@@ -1,0 +1,2 @@
+# Husky hook scripts must use LF so the shebang works on Windows (Git Bash / MSYS).
+server/.husky/** text eol=lf

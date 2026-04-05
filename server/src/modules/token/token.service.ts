@@ -2,7 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 
 import { Inject, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { TokenType } from '@root/generated/prisma/enums';
+import { TokenType } from '@root/generated/prisma/client';
 
 import { jwtConfig } from '@/config';
 import { JwtConfig } from '@/config/jwt.config';

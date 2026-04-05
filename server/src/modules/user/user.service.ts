@@ -46,7 +46,7 @@ export class UserService {
     const passwordHash = await hashPassword(dto.password);
 
     return this.prisma.$transaction(
-      async tx => {
+      async (tx) => {
         const existing = await tx.user.findUnique({
           where: { email: emailLower },
           select: { id: true },
@@ -82,8 +82,8 @@ export class UserService {
    *                         Omit for auth/JWT load (user id from token is sufficient).
    */
   async findById(id: string, organizationId?: string) {
-    const user =
-      organizationId !== undefined
+    const user
+      = organizationId !== undefined
         ? await this.prisma.user.findFirst({
             where: { id, organizationId },
             select: this.userSelect,

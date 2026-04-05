@@ -1,4 +1,4 @@
-import { UserRole } from '@root/generated/prisma/enums';
+import { UserRole } from '@root/generated/prisma/client';
 
 export const BCRYPT_SALT_ROUNDS = 12;
 
