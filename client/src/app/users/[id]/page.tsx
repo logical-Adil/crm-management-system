@@ -2,14 +2,14 @@ import { redirect } from "next/navigation";
 
 import { getServerSession } from "@/lib/server/session";
 
-import { CreateUserClient } from "./create-user-client";
+import { EditUserClient } from "./edit-user-client";
 
 export const metadata = {
-  title: "Create user | CRM",
-  description: "Create a user in your organization",
+  title: "Edit user | CRM",
+  description: "View and edit a user in your organization",
 };
 
-export default async function CreateUserPage() {
+export default async function EditUserPage() {
   const session = await getServerSession();
   if (!session?.accessToken) {
     redirect("/login");
@@ -17,5 +17,5 @@ export default async function CreateUserPage() {
   if (session.user.role !== "admin") {
     redirect("/");
   }
-  return <CreateUserClient />;
+  return <EditUserClient />;
 }

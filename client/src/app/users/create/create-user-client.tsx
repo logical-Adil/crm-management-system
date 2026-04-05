@@ -12,10 +12,7 @@ import {
   type CreateUserFormValues,
 } from "@/lib/validations/create-user.schema";
 import { createUserRequest } from "@/lib/users/users-api";
-
-const inputBase =
-  "w-full max-w-md rounded-control border border-border bg-background px-3.5 py-2.5 text-body text-foreground outline-none transition-[border-color,box-shadow] placeholder:text-muted hover:border-slate-300 focus:border-primary focus:ring-2 focus:ring-primary/15";
-const inputError = `${inputBase} border-danger ring-1 ring-danger/20 focus:border-danger focus:ring-danger/20`;
+import { formInputBase, formInputError } from "@/styles/form-classes";
 
 export function CreateUserClient() {
   const router = useRouter();
@@ -134,7 +131,7 @@ export function CreateUserClient() {
             id="create-email"
             type="email"
             autoComplete="off"
-            className={errors.email ? inputError : inputBase}
+            className={errors.email ? formInputError : formInputBase}
             aria-invalid={!!errors.email}
             {...register("email")}
           />
@@ -153,7 +150,7 @@ export function CreateUserClient() {
             id="create-password"
             type="password"
             autoComplete="new-password"
-            className={errors.password ? inputError : inputBase}
+            className={errors.password ? formInputError : formInputBase}
             aria-invalid={!!errors.password}
             {...register("password")}
           />
@@ -172,7 +169,7 @@ export function CreateUserClient() {
             id="create-name"
             type="text"
             autoComplete="name"
-            className={errors.name ? inputError : inputBase}
+            className={errors.name ? formInputError : formInputBase}
             {...register("name")}
           />
           {errors.name && (
@@ -188,7 +185,7 @@ export function CreateUserClient() {
           </label>
           <select
             id="create-role"
-            className={errors.role ? inputError : inputBase}
+            className={errors.role ? formInputError : formInputBase}
             {...register("role")}
           >
             <option value="member">Member</option>
