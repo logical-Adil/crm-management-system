@@ -3,15 +3,10 @@ import { env } from "@/lib/env";
 import { ApiError } from "./errors";
 
 export type ApiRequestOptions = Omit<RequestInit, "body"> & {
-  /** JSON body — serialized with JSON.stringify */
   json?: unknown;
-  /** Omit to skip Authorization header */
   accessToken?: string | null;
 };
 
-/**
- * Typed fetch to the Nest API (`NEXT_PUBLIC_API_URL`). Throws {@link ApiError} on non-OK.
- */
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
   const { json, accessToken, headers: initHeaders, ...rest } = options;
   const base = env.apiBaseUrl;

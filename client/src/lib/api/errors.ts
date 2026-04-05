@@ -1,6 +1,3 @@
-/**
- * Normalized error from failed API responses (Nest uses statusCode + message).
- */
 export class ApiError extends Error {
   readonly status: number;
   readonly body: unknown;
