@@ -47,7 +47,9 @@ Seeded admins: Acme `admin1@acme.demo`–`admin4@acme.demo`; Globex, Initech, Um
 
 | Endpoint | Bearer | Who can call | Path params | Query | Body |
 |----------|--------|--------------|-------------|-------|------|
-| `GET /api/v1/organizations` | Yes | **Any authenticated user** — `admin` or `member` | — | — | — |
+| `GET /api/v1/organizations` | Yes | **Any authenticated user** — `admin` or `member` | — | `page`, `limit` (optional — paginated; default page 1, limit 10; sorted by `name` asc) | — |
+
+**List response** matches shared pagination: `results`, `page`, `limit`, `totalRecords`, `totalPages`. Each row: `id`, `name`, `createdAt`, `updatedAt`.
 
 ---
 

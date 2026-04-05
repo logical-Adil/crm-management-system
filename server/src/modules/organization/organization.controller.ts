@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 
 import { JwtGuard } from '@/common/guards/jwt.guard';
 
@@ -13,7 +13,13 @@ export class OrganizationController {
   constructor(private readonly organizationService: OrganizationService) {}
 
   @Get()
-  findAll() {
-    return this.organizationService.findAll();
+  list(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.organizationService.list({
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+    });
   }
 }
