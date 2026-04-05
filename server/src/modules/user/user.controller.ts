@@ -19,6 +19,8 @@ import { JwtGuard } from '@/common/guards/jwt.guard';
 import { PermissionsGuard } from '@/common/guards/permissions.guard';
 import { Permissions } from '@/constants/auth.constants';
 
+import { CustomerService } from '@/modules/customer/customer.service';
+
 import { CreateUserDto, UpdateUserDto } from './dto';
 import { UserService } from './user.service';
 
@@ -26,15 +28,24 @@ import { UserService } from './user.service';
  * User routes:
  * - Org isolation: list / :id / patch / delete use the caller JWT’s `organizationId`, so admins only see and manage users in **their** company (never another org).
  * - Create: new users are stored with that same `organizationId` and `createdById` = the acting admin’s user id (audit).
+ * - List: same-org users; “yours” (self or created by you) are ordered first, then by `createdAt`.
  */
 @Controller('users')
 @UseGuards(JwtGuard, PermissionsGuard)
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(
+    private readonly userService: UserService,
+    private readonly customerService: CustomerService,
+  ) {}
 
   @Get('me')
-  me(@User() user: AuthedUserPayload) {
-    return this.userService.findById(user.id, user.organizationId);
+  async me(@User() user: AuthedUserPayload) {
+    const [profile, createdUsersCount, activeCustomersCount] = await Promise.all([
+      this.userService.findById(user.id, user.organizationId),
+      this.userService.countUsersCreatedBy(user.id, user.organizationId),
+      this.customerService.countActiveForAssignee(user.organizationId, user.id),
+    ]);
+    return { ...profile, createdUsersCount, activeCustomersCount };
   }
 
   @Post()
@@ -54,6 +65,7 @@ export class UserController {
       page: page ? Number(page) : undefined,
       limit: limit ? Number(limit) : undefined,
       organizationId: authed.organizationId,
+      actorId: authed.id,
     });
   }
 

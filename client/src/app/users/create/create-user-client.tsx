@@ -16,7 +16,7 @@ import { formInputBase, formInputError } from "@/styles/form-classes";
 
 export function CreateUserClient() {
   const router = useRouter();
-  const { user, accessToken, isReady, isAuthenticated } = useAuth();
+  const { user, accessToken, isReady, isAuthenticated, refreshSessionUser } = useAuth();
   const [rootError, setRootError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -55,6 +55,7 @@ export function CreateUserClient() {
       };
       const created = await createUserRequest(accessToken, body);
       setSuccess(`User created: ${created.email} (${created.role}).`);
+      await refreshSessionUser();
       reset({
         email: "",
         password: "",
@@ -100,7 +101,6 @@ export function CreateUserClient() {
       <p className="mt-1 text-body text-muted">
         Add a user to your organization (admin only). Password must be at least 10 characters.
       </p>
-
       <form
         onSubmit={handleSubmit(onSubmit)}
         className="mt-8 max-w-md space-y-5"
@@ -123,6 +123,7 @@ export function CreateUserClient() {
           </div>
         )}
 
+        <fieldset className="space-y-5 border-0 p-0">
         <div className="space-y-1.5">
           <label htmlFor="create-email" className="block text-small font-medium text-foreground">
             Email
@@ -205,6 +206,7 @@ export function CreateUserClient() {
         >
           {isSubmitting ? "Creating…" : "Create user"}
         </button>
+        </fieldset>
       </form>
     </div>
   );

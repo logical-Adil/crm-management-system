@@ -7,27 +7,34 @@ import type { UserListItem } from "@/lib/users/users-api";
 
 type Props = {
   row: UserListItem;
+  /** When true, row opens the edit screen (users you created or your own account). */
+  canOpenDetail: boolean;
+  canDelete: boolean;
   onNavigate: (id: string) => void;
   onRequestDelete: (row: UserListItem) => void;
 };
 
 export const UserTableRow = memo(function UserTableRow({
   row,
+  canOpenDetail,
+  canDelete,
   onNavigate,
   onRequestDelete,
 }: Props) {
   const go = useCallback(() => {
+    if (!canOpenDetail) return;
     onNavigate(row.id);
-  }, [onNavigate, row.id]);
+  }, [canOpenDetail, onNavigate, row.id]);
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      if (!canOpenDetail) return;
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         onNavigate(row.id);
       }
     },
-    [onNavigate, row.id],
+    [canOpenDetail, onNavigate, row.id],
   );
 
   const onDeleteClick = useCallback(
@@ -40,11 +47,15 @@ export const UserTableRow = memo(function UserTableRow({
 
   return (
     <tr
-      role="button"
-      tabIndex={0}
-      onClick={go}
-      onKeyDown={onKeyDown}
-      className="cursor-pointer transition-colors hover:bg-slate-50/80"
+      role={canOpenDetail ? "button" : undefined}
+      tabIndex={canOpenDetail ? 0 : undefined}
+      onClick={canOpenDetail ? go : undefined}
+      onKeyDown={canOpenDetail ? onKeyDown : undefined}
+      className={
+        canOpenDetail
+          ? "cursor-pointer transition-colors hover:bg-slate-50/80"
+          : "cursor-default"
+      }
     >
       <td className="whitespace-nowrap px-4 py-3 font-medium text-foreground">{row.email}</td>
       <td className="max-w-[200px] truncate px-4 py-3 text-muted">{row.name?.trim() || "—"}</td>
@@ -68,13 +79,17 @@ export const UserTableRow = memo(function UserTableRow({
       </td>
       <td className="whitespace-nowrap px-4 py-3 text-muted">{formatDateTime(row.createdAt)}</td>
       <td className="whitespace-nowrap px-4 py-3 text-right">
-        <button
-          type="button"
-          onClick={onDeleteClick}
-          className="rounded-control border border-danger/25 px-2.5 py-1 text-small font-medium text-danger transition-colors hover:bg-red-50"
-        >
-          Delete
-        </button>
+        {canDelete ? (
+          <button
+            type="button"
+            onClick={onDeleteClick}
+            className="rounded-control border border-danger/25 px-2.5 py-1 text-small font-medium text-danger transition-colors hover:bg-red-50"
+          >
+            Delete
+          </button>
+        ) : (
+          <span className="text-small text-muted">—</span>
+        )}
       </td>
     </tr>
   );

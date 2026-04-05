@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { PassportModule } from '@nestjs/passport';
 
+import { CustomerModule } from '@/modules/customer/customer.module';
 import { TokenModule } from '@/modules/token/token.module';
 import { UserModule } from '@/modules/user/user.module';
 
@@ -11,6 +12,7 @@ import { JwtAccessStrategy } from './strategies/jwt-access.strategy';
 @Module({
   imports: [
     UserModule,
+    CustomerModule,
     TokenModule,
     PassportModule.register({ defaultStrategy: 'jwt-access' }),
   ],

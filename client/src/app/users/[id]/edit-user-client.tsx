@@ -21,6 +21,7 @@ import {
   updateUserRequest,
   type UserDetail,
 } from "@/lib/users/users-api";
+import { canDeleteUser, canEditUser } from "@/lib/users/user-permissions";
 import { formInputBase, formInputError, formInputMuted } from "@/styles/form-classes";
 
 export function EditUserClient() {
@@ -33,6 +34,7 @@ export function EditUserClient() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadingUser, setLoadingUser] = useState(true);
   const [detail, setDetail] = useState<UserDetail | null>(null);
+  const [noAccessRedirect, setNoAccessRedirect] = useState(false);
   const [rootError, setRootError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -57,16 +59,31 @@ export function EditUserClient() {
   }, [isReady, isAuthenticated, authedUser, router]);
 
   useEffect(() => {
-    if (!isReady || !isAuthenticated || !accessToken || !id || authedUser?.role !== "admin") {
+    if (
+      !isReady ||
+      !isAuthenticated ||
+      !accessToken ||
+      !id ||
+      authedUser?.role !== "admin" ||
+      !authedUser
+    ) {
       return;
     }
     let cancelled = false;
     (async () => {
       setLoadingUser(true);
       setLoadError(null);
+      setNoAccessRedirect(false);
       try {
         const u = await getUserByIdRequest(accessToken, id);
         if (cancelled) return;
+        if (!canEditUser(u, authedUser.id)) {
+          if (!cancelled) {
+            setNoAccessRedirect(true);
+            router.replace("/users");
+          }
+          return;
+        }
         setDetail(u);
         reset({
           name: u.name ?? "",
@@ -86,7 +103,7 @@ export function EditUserClient() {
     return () => {
       cancelled = true;
     };
-  }, [isReady, isAuthenticated, accessToken, id, authedUser?.role, reset]);
+  }, [isReady, isAuthenticated, accessToken, id, authedUser, reset, router]);
 
   const onSubmit = async (data: UpdateUserFormValues) => {
     if (!accessToken || !id) return;
@@ -153,6 +170,14 @@ export function EditUserClient() {
     );
   }
 
+  if (noAccessRedirect) {
+    return (
+      <div className="mx-auto w-full max-w-xl flex-1 px-4 py-8 sm:px-6">
+        <p className="text-body text-muted">Redirecting…</p>
+      </div>
+    );
+  }
+
   if (loadError) {
     return (
       <div className="mx-auto w-full max-w-xl flex-1 px-4 py-8 sm:px-6">
@@ -163,6 +188,16 @@ export function EditUserClient() {
       </div>
     );
   }
+
+  if (!detail) {
+    return (
+      <div className="mx-auto w-full max-w-xl flex-1 px-4 py-8 sm:px-6">
+        <p className="text-body text-muted">Redirecting…</p>
+      </div>
+    );
+  }
+
+  const canDelete = authedUser ? canDeleteUser(detail, authedUser.id) : false;
 
   return (
     <div className="mx-auto w-full max-w-xl flex-1 px-4 py-8 sm:px-6">
@@ -208,7 +243,7 @@ export function EditUserClient() {
             type="email"
             disabled
             className={formInputMuted}
-            value={detail?.email ?? ""}
+            value={detail.email}
             readOnly
             placeholder="—"
           />
@@ -254,7 +289,7 @@ export function EditUserClient() {
           )}
         </div>
 
-        <div className="flex flex-wrap gap-3 pt-2">
+        <div className="flex flex-wrap items-center gap-3 pt-2">
           <button
             type="submit"
             disabled={isSubmitting}
@@ -262,16 +297,18 @@ export function EditUserClient() {
           >
             {isSubmitting ? "Saving…" : "Save changes"}
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              setDeleteError(null);
-              setDeleteOpen(true);
-            }}
-            className="rounded-control border border-danger/30 bg-background px-4 py-2.5 text-body font-semibold text-danger transition-colors hover:bg-red-50"
-          >
-            Delete user
-          </button>
+          {canDelete ? (
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteError(null);
+                setDeleteOpen(true);
+              }}
+              className="rounded-control border border-danger/30 bg-background px-4 py-2.5 text-body font-semibold text-danger transition-colors hover:bg-red-50"
+            >
+              Delete user
+            </button>
+          ) : null}
         </div>
       </form>
 

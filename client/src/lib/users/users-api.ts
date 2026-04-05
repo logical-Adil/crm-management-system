@@ -13,6 +13,10 @@ export type MeResponse = {
   createdAt: string;
   updatedAt: string;
   createdBy?: { id: string; email: string; name: string | null } | null;
+  /** Count of org users with `createdById` = you (informational). */
+  createdUsersCount?: number;
+  /** Active customers assigned to you (for create-cap UI). */
+  activeCustomersCount?: number;
 };
 
 export async function fetchCurrentUserRequest(accessToken: string): Promise<MeResponse> {
@@ -31,6 +35,8 @@ export function meResponseToAuthUser(me: MeResponse): AuthUser {
     isActive: me.isActive,
     organizationId: me.organizationId,
     createdById: me.createdById,
+    createdUsersCount: me.createdUsersCount ?? 0,
+    activeCustomersCount: me.activeCustomersCount ?? 0,
   };
 }
 

@@ -66,6 +66,8 @@ Seeded admins: Acme `admin1@acme.demo`–`admin4@acme.demo`; Globex, Initech, Um
 
 **`:id` rule (admin routes):** User must be in the **same organization** as the JWT; get ids from `GET /users` or your own id from `GET /users/me` — else **404**.
 
+**`GET /users/me`** includes **`createdUsersCount`** (how many org users list you as **`createdById`**) for display only — there is **no** limit on how many users an admin may create. The **5** limit applies only to **active customers assigned to a user** (`MAX_CUSTOMERS_PER_USER`); see **Customers** below.
+
 **Sensitive:** Keep Bearer in Postman variables; use fake data in examples.
 
 **Create (admin):**

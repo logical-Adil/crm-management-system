@@ -24,6 +24,8 @@ type AuthContextValue = {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  /** Refetch `/users/me` and update session (e.g. after creating or deleting a user). */
+  refreshSessionUser: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -112,6 +114,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.refresh();
   }, [session?.refreshToken, router]);
 
+  const refreshSessionUser = useCallback(async () => {
+    const stored = loadSession();
+    if (!stored?.accessToken) return;
+    try {
+      const me = await fetchCurrentUserRequest(stored.accessToken);
+      const user = meResponseToAuthUser(me);
+      const next: AuthSession = { ...stored, user };
+      saveSession(next);
+      setSession(next);
+    } catch {
+      /* ignore — caller can retry */
+    }
+  }, []);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user: session?.user ?? null,
@@ -120,8 +136,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: !!session?.accessToken,
       login,
       logout,
+      refreshSessionUser,
     }),
-    [session, isReady, login, logout],
+    [session, isReady, login, logout, refreshSessionUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -38,6 +38,18 @@ const noteSelect = {
   updatedAt: true,
 } as const;
 
+type CustomerListSqlRow = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  organizationId: string;
+  assignedToId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt: Date | null;
+};
+
 @Injectable()
 export class CustomerService {
   constructor(private readonly prisma: PrismaService) { }
@@ -75,21 +87,37 @@ export class CustomerService {
     } satisfies Prisma.CustomerWhereInput;
   }
 
-  /** Paginated list of all **active** customers in the organization (any member can browse). */
+  /** Active (non-deleted) customers assigned to this user in the org — for caps and `/users/me`. */
+  async countActiveForAssignee(
+    organizationId: string,
+    assigneeId: string,
+  ): Promise<number> {
+    return this.prisma.customer.count({
+      where: this.activeCountWhere(organizationId, assigneeId),
+    });
+  }
+
+  /**
+   * Paginated list of all **active** customers in the organization (any member can browse).
+   * Rows assigned to `prioritizeUserId` are ordered first, then everyone else (by `updatedAt` desc).
+   * Uses `CASE` so unassigned rows (`assigned_to_id` NULL) are not ordered ambiguously — unlike `(col = id) DESC`, where `NULL = id` is unknown in SQL.
+   */
   async list(options: {
     page?: number;
     limit?: number;
     search?: string;
     organizationId: string;
+    prioritizeUserId: string;
   }) {
     const page = options.page && options.page > 0 ? options.page : 1;
     const limit = options.limit && options.limit > 0 ? options.limit : 10;
     const skip = (page - 1) * limit;
 
     const search = options.search?.trim();
+    const { organizationId, prioritizeUserId } = options;
 
     const where: Prisma.CustomerWhereInput = {
-      organizationId: options.organizationId,
+      organizationId,
       deletedAt: null,
       ...(search
         ? {
@@ -101,14 +129,34 @@ export class CustomerService {
         : {}),
     };
 
+    const searchFilter = search
+      ? Prisma.sql`AND (
+          name ILIKE ${'%' + search + '%'}
+          OR email ILIKE ${'%' + search + '%'}
+        )`
+      : Prisma.empty;
+
     const [rows, totalRecords] = await Promise.all([
-      this.prisma.customer.findMany({
-        where,
-        select: customerListSelect,
-        orderBy: { createdAt: 'desc' },
-        take: limit,
-        skip,
-      }),
+      this.prisma.$queryRaw<CustomerListSqlRow[]>(Prisma.sql`
+        SELECT
+          id,
+          name,
+          email,
+          phone,
+          organization_id AS "organizationId",
+          assigned_to_id AS "assignedToId",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt",
+          deleted_at AS "deletedAt"
+        FROM customers
+        WHERE organization_id = ${organizationId}
+          AND deleted_at IS NULL
+          ${searchFilter}
+        ORDER BY
+          CASE WHEN assigned_to_id = ${prioritizeUserId} THEN 0 ELSE 1 END ASC,
+          updated_at DESC
+        LIMIT ${limit} OFFSET ${skip}
+      `),
       this.prisma.customer.count({ where }),
     ]);
 
@@ -132,14 +180,12 @@ export class CustomerService {
 
     return this.prisma.$transaction(
       async tx => {
-        const count = await tx.customer.count({
+        const activeAssignedToMe = await tx.customer.count({
           where: this.activeCountWhere(organizationId, assignedToId),
         });
-        if (count >= MAX_CUSTOMERS_PER_USER) {
-          throw new BadRequestException(
-            `You can have at most ${MAX_CUSTOMERS_PER_USER} active customers.`,
-          );
-        }
+        /** At cap, create as unassigned (same idea as seed overflow) instead of blocking creation. */
+        const assigneeId =
+          activeAssignedToMe >= MAX_CUSTOMERS_PER_USER ? null : assignedToId;
 
         try {
           const created = await tx.customer.create({
@@ -148,7 +194,7 @@ export class CustomerService {
               email,
               phone: dto.phone ?? null,
               organizationId,
-              assignedToId,
+              assignedToId: assigneeId,
             },
             select: customerListSelect,
           });

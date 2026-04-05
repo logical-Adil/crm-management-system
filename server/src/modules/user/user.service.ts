@@ -3,10 +3,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@root/generated/prisma/client';
 
 import { hashPassword } from '@/common/utils/password.utils';
 import { PrismaService } from '@/database/prisma.service';
-import { paginate } from '@/lib/paginate';
 
 import type { CreateUserDto, UpdateUserDto } from './dto';
 
@@ -29,36 +29,46 @@ export class UserService {
     updatedAt: true,
   } as const;
 
+  /** Users created by this admin in the org (exposed on `/users/me` for UI). */
+  async countUsersCreatedBy(creatorId: string, organizationId: string): Promise<number> {
+    return this.prisma.user.count({
+      where: { createdById: creatorId, organizationId },
+    });
+  }
+
   /** New user always belongs to `organizationId`; `createdById` records which admin created them (cannot be set by client). */
   async create(
     dto: CreateUserDto,
     organizationId: string,
     createdById: string,
   ) {
-    const existing = await this.prisma.user.findUnique({
-      where: { email: dto.email.toLowerCase() },
-      select: { id: true },
-    });
-
-    if (existing) {
-      throw new ConflictException('User with this email already exists');
-    }
-
+    const emailLower = dto.email.toLowerCase();
     const passwordHash = await hashPassword(dto.password);
 
-    const user = await this.prisma.user.create({
-      data: {
-        email: dto.email.toLowerCase(),
-        password: passwordHash,
-        name: dto.name ?? null,
-        role: dto.role,
-        organizationId,
-        createdById,
-      },
-      select: this.userSelect,
-    });
+    return this.prisma.$transaction(
+      async tx => {
+        const existing = await tx.user.findUnique({
+          where: { email: emailLower },
+          select: { id: true },
+        });
+        if (existing) {
+          throw new ConflictException('User with this email already exists');
+        }
 
-    return user;
+        return tx.user.create({
+          data: {
+            email: emailLower,
+            password: passwordHash,
+            name: dto.name ?? null,
+            role: dto.role,
+            organizationId,
+            createdById,
+          },
+          select: this.userSelect,
+        });
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
   }
 
   async findByEmail(email: string) {
@@ -94,20 +104,75 @@ export class UserService {
     return user;
   }
 
-  /** Only users in the given organization (not other tenants). */
+  /**
+   * Paginated org directory. Rows you “own” (your account or users you created) sort first,
+   * then everyone else, by `createdAt` within each group.
+   *
+   * Implemented with Prisma only (no raw SQL) so UUID/LIMIT parameter binding stays reliable
+   * across drivers.
+   */
   async list(options: {
     page?: number;
     limit?: number;
     organizationId: string;
+    actorId: string;
   }) {
-    return paginate(this.prisma.user, {
-      options: {
-        page: options.page,
-        limit: options.limit,
-      },
-      filters: { organizationId: options.organizationId },
-      omit: ['password'],
+    const page = Number(options.page) || 1;
+    const limit = Number(options.limit) || 10;
+    const offset = (page - 1) * limit;
+    const { organizationId, actorId } = options;
+
+    const [meta, totalRecords] = await Promise.all([
+      this.prisma.user.findMany({
+        where: { organizationId },
+        select: { id: true, createdAt: true, createdById: true },
+      }),
+      this.prisma.user.count({ where: { organizationId } }),
+    ]);
+
+    const isMine = (u: { id: string; createdById: string | null }) =>
+      u.id === actorId || u.createdById === actorId;
+
+    const orderedIds = [...meta]
+      .sort((a, b) => {
+        const aFirst = isMine(a);
+        const bFirst = isMine(b);
+        if (aFirst !== bFirst) {
+          return aFirst ? -1 : 1;
+        }
+        return a.createdAt.getTime() - b.createdAt.getTime();
+      })
+      .map(u => u.id);
+
+    const pageIds = orderedIds.slice(offset, offset + limit);
+
+    if (pageIds.length === 0) {
+      return {
+        results: [],
+        page,
+        limit,
+        totalRecords,
+        totalPages: Math.ceil(totalRecords / limit) || 0,
+      };
+    }
+
+    const rows = await this.prisma.user.findMany({
+      where: { id: { in: pageIds } },
+      select: this.userSelect,
     });
+
+    const order = new Map(pageIds.map((id, index) => [id, index]));
+    rows.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+
+    const totalPages = Math.ceil(totalRecords / limit);
+
+    return {
+      results: rows,
+      page,
+      limit,
+      totalRecords,
+      totalPages,
+    };
   }
 
   async update(id: string, dto: UpdateUserDto, organizationId: string) {

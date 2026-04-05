@@ -4,6 +4,7 @@ import {
 } from '@nestjs/common';
 
 import { comparePassword } from '@/common/utils/password.utils';
+import { CustomerService } from '@/modules/customer/customer.service';
 import { TokenService } from '@/modules/token/token.service';
 import { UserService } from '@/modules/user/user.service';
 
@@ -14,6 +15,7 @@ export class AuthService {
   constructor(
     private readonly userService: UserService,
     private readonly tokenService: TokenService,
+    private readonly customerService: CustomerService,
   ) {}
 
   async login(dto: LoginDto) {
@@ -38,6 +40,11 @@ export class AuthService {
     await this.tokenService.revokeAllRefreshTokensForUser(user.id);
     const tokens = await this.tokenService.issueTokens(user.id);
 
+    const [createdUsersCount, activeCustomersCount] = await Promise.all([
+      this.userService.countUsersCreatedBy(user.id, user.organizationId),
+      this.customerService.countActiveForAssignee(user.organizationId, user.id),
+    ]);
+
     return {
       user: {
         id: user.id,
@@ -47,6 +54,8 @@ export class AuthService {
         isActive: user.isActive,
         organizationId: user.organizationId,
         createdById: user.createdById,
+        createdUsersCount,
+        activeCustomersCount,
       },
       tokens,
     };

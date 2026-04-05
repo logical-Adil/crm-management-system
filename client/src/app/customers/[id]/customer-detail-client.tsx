@@ -58,7 +58,7 @@ export function CustomerDetailClient({
   const id = typeof params.id === "string" ? params.id : "";
 
   const queryClient = useQueryClient();
-  const { user, accessToken, isReady, isAuthenticated } = useAuth();
+  const { user, accessToken, isReady, isAuthenticated, refreshSessionUser } = useAuth();
   const [formError, setFormError] = useState<string | null>(null);
   const [formOk, setFormOk] = useState<string | null>(null);
   const [noteError, setNoteError] = useState<string | null>(null);
@@ -185,6 +185,7 @@ export function CustomerDetailClient({
     try {
       await deleteCustomerRequest(accessToken, id);
       void queryClient.invalidateQueries({ queryKey: qk.customers.all });
+      await refreshSessionUser();
       setDeleteOpen(false);
       router.push("/customers");
     } catch (e) {
@@ -204,6 +205,7 @@ export function CustomerDetailClient({
       queryClient.setQueryData<CustomerDetail>(qk.customers.detail(id), prev =>
         prev ? { ...prev, ...updated, notes: prev.notes } : prev,
       );
+      await refreshSessionUser();
       setRestoreOpen(false);
     } catch (e) {
       if (e instanceof ApiError) {
@@ -226,6 +228,7 @@ export function CustomerDetailClient({
       queryClient.setQueryData<CustomerDetail>(qk.customers.detail(id), prev =>
         prev ? { ...prev, ...updated, notes: prev.notes } : prev,
       );
+      await refreshSessionUser();
       setAssignTo("");
       setFormOk("Reassigned.");
     } catch (e) {

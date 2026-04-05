@@ -9,6 +9,10 @@ export type AuthUser = {
   isActive: boolean;
   organizationId: string;
   createdById: string | null;
+  /** Users in your org with `createdById` = you (informational). */
+  createdUsersCount?: number;
+  /** Active (non-deleted) customers assigned to you — for per-user cap UI. */
+  activeCustomersCount?: number;
 };
 
 export type TokenBundle = {

@@ -11,6 +11,7 @@ import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 import { ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { qk } from "@/lib/query";
+import { MAX_CUSTOMERS_PER_USER } from "@/lib/customers/constants";
 import {
   deleteCustomerRequest,
   listCustomersRequest,
@@ -37,7 +38,8 @@ export function CustomersListClient({
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const { user, accessToken, isReady, isAuthenticated } = useAuth();
+  const { user, accessToken, isReady, isAuthenticated, refreshSessionUser } = useAuth();
+  const uid = serverUserId ?? user?.id;
 
   const page = Math.max(1, Number(searchParams.get("page")) || 1);
   const limitRaw = Number(searchParams.get("limit")) || 10;
@@ -106,6 +108,7 @@ export function CustomersListClient({
     try {
       await deleteCustomerRequest(accessToken, pendingDelete.id);
       void queryClient.invalidateQueries({ queryKey: qk.customers.all });
+      await refreshSessionUser();
       setPendingDelete(null);
     } catch (e) {
       if (e instanceof ApiError) {
@@ -145,10 +148,12 @@ export function CustomersListClient({
     );
   }
 
-  const uid = serverUserId ?? user?.id;
   const start =
     data && data.totalRecords > 0 ? (data.page - 1) * data.limit + 1 : 0;
   const end = data ? Math.min(data.page * data.limit, data.totalRecords) : 0;
+
+  const activeAssigned = user?.activeCustomersCount ?? 0;
+  const atCustomerCap = activeAssigned >= MAX_CUSTOMERS_PER_USER;
 
   return (
     <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
@@ -160,12 +165,21 @@ export function CustomersListClient({
             <span className="font-medium text-foreground">assigned to you</span>.
           </p>
         </div>
-        <Link
-          href="/customers/create"
-          className="inline-flex shrink-0 items-center justify-center rounded-control bg-primary px-4 py-2 text-body font-medium text-primary-foreground shadow-sm transition-opacity hover:opacity-95"
-        >
-          Create customer
-        </Link>
+        {atCustomerCap ? (
+          <span
+            className="inline-flex shrink-0 cursor-not-allowed items-center justify-center rounded-control border border-border bg-slate-100 px-4 py-2 text-body text-muted"
+            title={`You already have ${MAX_CUSTOMERS_PER_USER} active customers assigned to you. Delete or reassign one to create another.`}
+          >
+            Create customer (limit reached)
+          </span>
+        ) : (
+          <Link
+            href="/customers/create"
+            className="inline-flex shrink-0 items-center justify-center rounded-control bg-primary px-4 py-2 text-body font-medium text-primary-foreground shadow-sm transition-opacity hover:opacity-95"
+          >
+            Create customer
+          </Link>
+        )}
       </div>
 
       <CustomersDebouncedSearch searchFromUrl={search} limit={limit} />

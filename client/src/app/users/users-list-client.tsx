@@ -16,6 +16,7 @@ import {
   type PaginatedUsers,
   type UserListItem,
 } from "@/lib/users/users-api";
+import { canDeleteUser, canEditUser } from "@/lib/users/user-permissions";
 
 const LIMIT_OPTIONS = [10, 25, 50] as const;
 
@@ -33,7 +34,7 @@ export function UsersListClient({
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const { user, accessToken, isReady, isAuthenticated } = useAuth();
+  const { user, accessToken, isReady, isAuthenticated, refreshSessionUser } = useAuth();
 
   const page = Math.max(1, Number(searchParams.get("page")) || 1);
   const limitRaw = Number(searchParams.get("limit")) || 10;
@@ -96,6 +97,7 @@ export function UsersListClient({
     try {
       await deleteUserRequest(accessToken, pendingDelete.id);
       void queryClient.invalidateQueries({ queryKey: qk.users.all });
+      await refreshSessionUser();
       setPendingDelete(null);
     } catch (e) {
       if (e instanceof ApiError) {
@@ -220,6 +222,8 @@ export function UsersListClient({
                   <UserTableRow
                     key={row.id}
                     row={row}
+                    canOpenDetail={user ? canEditUser(row, user.id) : false}
+                    canDelete={user ? canDeleteUser(row, user.id) : false}
                     onNavigate={navigateToUser}
                     onRequestDelete={requestDelete}
                   />

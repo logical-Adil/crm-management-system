@@ -25,7 +25,7 @@ import {
 /**
  * List + GET `:id` are **organization-wide** (any authenticated member). **`POST :id/notes`** to add a note.
  * Customer mutations (create, update, delete, restore, assign) apply only when **assigned to you** (`assignedToId`).
- * Max 5 active customers per user (create / assign / restore enforce this).
+ * Max 5 active customers assigned to you; at cap, new creates are unassigned (`assignedToId` null). Assign / restore still enforce the cap.
  */
 @Controller('customers')
 @UseGuards(JwtGuard)
@@ -44,6 +44,7 @@ export class CustomerController {
       limit: limit ? Number(limit) : undefined,
       search,
       organizationId: authed.organizationId,
+      prioritizeUserId: authed.id,
     });
   }
 

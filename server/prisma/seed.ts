@@ -16,14 +16,17 @@ if (!connectionString) {
 const adapter = new PrismaPg({ connectionString });
 const prisma = new PrismaClient({ adapter });
 
-/** Primary demo org: 18 admins + 50 members + bulk customers / notes. */
+/** Primary demo org: 18 admins + 50 members + bulk customers / notes (500+ rows for pagination). */
 const ACME_ORG_NAME = 'Acme Corporation';
 
 const ACME_ADMIN_COUNT = 18;
 const ACME_MEMBER_COUNT = 50;
 
-/** Active customers to create in Acme (distributed across users, ≤ MAX per assignee). */
-const ACME_ACTIVE_CUSTOMERS = 140;
+/**
+ * Active customers in Acme for list/pagination testing. Assignees are filled round-robin up to
+ * MAX_CUSTOMERS_PER_USER each; overflow rows are unassigned (`assignedToId: null`).
+ */
+const ACME_ACTIVE_CUSTOMERS = 520;
 
 /** Soft-deleted customers in Acme (for restore / list tests). */
 const ACME_SOFT_DELETED_CUSTOMERS = 55;
@@ -174,6 +177,8 @@ async function seedAcmeBulkCustomers(organizationId: string) {
 
   let rr = 0;
 
+  const fallbackAuthorId = userIds[0];
+
   for (let i = 1; i <= ACME_ACTIVE_CUSTOMERS; i++) {
     const email = `bulk-active-${i}@acme.seed`.toLowerCase();
     const existing = await prisma.customer.findUnique({
@@ -188,17 +193,15 @@ async function seedAcmeBulkCustomers(organizationId: string) {
     }
 
     const pick = pickAssignee(userIds, activeCounts, rr);
-    if (!pick) {
-      console.warn(
-        '  Cannot place more active customers: all assignees at max.',
+    let assignedToId: string | null = null;
+    if (pick) {
+      rr = pick.nextStart;
+      activeCounts.set(
+        pick.userId,
+        (activeCounts.get(pick.userId) ?? 0) + 1,
       );
-      break;
+      assignedToId = pick.userId;
     }
-    rr = pick.nextStart;
-    activeCounts.set(
-      pick.userId,
-      (activeCounts.get(pick.userId) ?? 0) + 1,
-    );
 
     const customer = await prisma.customer.create({
       data: {
@@ -206,16 +209,15 @@ async function seedAcmeBulkCustomers(organizationId: string) {
         email,
         phone: i % 7 === 0 ? `+1-555-${String(1000 + i).slice(-4)}` : null,
         organizationId,
-        assignedToId: pick.userId,
+        assignedToId,
         deletedAt: null,
       },
       select: { id: true, assignedToId: true },
     });
     customersCreated += 1;
 
-    if (i <= 90) {
-      const noteAuthor =
-        users.find(u => u.id === pick.userId)?.id ?? pick.userId;
+    if (i <= 120) {
+      const noteAuthor = customer.assignedToId ?? fallbackAuthorId;
       await prisma.note.create({
         data: {
           body: `Seed note for active customer ${i}.`,
