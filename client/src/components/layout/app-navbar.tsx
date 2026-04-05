@@ -13,11 +13,8 @@ function initials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-/**
- * Full-width app bar: logo left, account menu (logout) right — used for all authenticated pages.
- */
 export function AppNavbar() {
-  const { user, signOut } = useAuth();
+  const { user, logout } = useAuth();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -50,7 +47,7 @@ export function AppNavbar() {
               width={28}
               height={28}
               className="h-7 w-7 object-contain"
-              priority
+              fetchPriority="high"
             />
           </span>
           <span className="text-heading font-semibold tracking-tight">CRM</span>
@@ -86,7 +83,7 @@ export function AppNavbar() {
                 className="w-full px-3 py-2.5 text-left text-body text-foreground transition-colors hover:bg-slate-50"
                 onClick={() => {
                   close();
-                  void signOut();
+                  void logout();
                 }}
               >
                 Log out

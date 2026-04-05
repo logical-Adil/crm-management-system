@@ -12,21 +12,15 @@ import {
   loginSchema,
   type LoginFormValues,
 } from "@/lib/validations/login.schema";
+import {
+  loginInputError,
+  loginInputNormal,
+  loginSubmitButton,
+} from "@/styles/form-classes";
 
-const inputBase =
-  "w-full rounded-control border bg-background px-3.5 py-2.5 text-body text-foreground outline-none transition-[border-color,box-shadow] placeholder:text-muted";
-const inputNormal = `${inputBase} border-border hover:border-slate-300 focus:border-primary focus:ring-2 focus:ring-primary/15`;
-const inputError = `${inputBase} border-danger ring-1 ring-danger/20 focus:border-danger focus:ring-danger/20`;
-
-const submitButtonClass =
-  "group relative w-full overflow-hidden rounded-control bg-gradient-to-b from-primary to-blue-700 py-3 text-body font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-[transform,box-shadow] hover:from-blue-600 hover:to-blue-800 hover:shadow-xl hover:shadow-primary/30 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100";
-
-/**
- * Login only — authenticated users are sent to `/` (navbar + home).
- */
 export function LoginScreen() {
   const router = useRouter();
-  const { signIn, isReady, isAuthenticated } = useAuth();
+  const { login, isReady, isAuthenticated } = useAuth();
   const [rootError, setRootError] = useState<string | null>(null);
 
   const {
@@ -52,7 +46,7 @@ export function LoginScreen() {
   const onSubmit = async (data: LoginFormValues) => {
     setRootError(null);
     try {
-      await signIn(data.email, data.password);
+      await login(data.email, data.password);
       reset({ ...data, password: "" });
     } catch (e) {
       if (e instanceof ApiError) {
@@ -112,7 +106,7 @@ export function LoginScreen() {
                     width={40}
                     height={40}
                     className="h-10 w-10 object-contain"
-                    priority
+                    fetchPriority="high"
                   />
                 </div>
                 <div>
@@ -150,7 +144,7 @@ export function LoginScreen() {
                   type="email"
                   autoComplete="email"
                   placeholder="admin1@acme.demo"
-                  className={errors.email ? inputError : inputNormal}
+                  className={errors.email ? loginInputError : loginInputNormal}
                   aria-invalid={!!errors.email}
                   aria-describedby={errors.email ? "login-email-error" : undefined}
                   {...register("email")}
@@ -174,7 +168,7 @@ export function LoginScreen() {
                   type="password"
                   autoComplete="current-password"
                   placeholder="••••••••"
-                  className={errors.password ? inputError : inputNormal}
+                  className={errors.password ? loginInputError : loginInputNormal}
                   aria-invalid={!!errors.password}
                   aria-describedby={
                     errors.password ? "login-password-error" : undefined
@@ -191,7 +185,7 @@ export function LoginScreen() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className={`${submitButtonClass} mt-2`.trim()}
+                className={`${loginSubmitButton} mt-2`.trim()}
               >
                 <span className="relative z-10 flex items-center justify-center gap-2">
                   {isSubmitting && (

@@ -9,6 +9,9 @@ const inter = Inter({
   subsets: ["latin"],
   display: "swap",
   variable: "--font-inter",
+  // Avoid <link rel="preload" as="font"> warnings when the font applies via CSS
+  // variables slightly after first paint; the stylesheet @font-face still loads normally.
+  preload: false,
 });
 
 export const metadata: Metadata = {

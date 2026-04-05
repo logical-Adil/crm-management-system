@@ -5,10 +5,15 @@ import { useRouter } from "next/navigation";
 
 import { useAuth } from "@/lib/auth";
 
-/**
- * Authenticated home placeholder — navbar comes from {@link AppShell}.
- */
-export function HomeClient() {
+type HomeClientProps = {
+  serverUserName?: string;
+  prefetchedAt?: number;
+};
+
+export function HomeClient({
+  serverUserName,
+  prefetchedAt,
+}: HomeClientProps = {}) {
   const router = useRouter();
   const { user, isReady, isAuthenticated } = useAuth();
 
@@ -18,7 +23,9 @@ export function HomeClient() {
     }
   }, [isReady, isAuthenticated, router]);
 
-  if (!isReady) {
+  const skipAuthShell = prefetchedAt != null;
+
+  if (!skipAuthShell && !isReady) {
     return (
       <div className="flex flex-1 items-center justify-center p-8">
         <p className="text-body text-muted">Loading…</p>
@@ -26,7 +33,7 @@ export function HomeClient() {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!skipAuthShell && !isAuthenticated) {
     return (
       <div className="flex flex-1 items-center justify-center p-8">
         <p className="text-body text-muted">Redirecting…</p>
@@ -34,12 +41,13 @@ export function HomeClient() {
     );
   }
 
+  const displayName = user?.name?.trim() || serverUserName?.trim() || "there";
+
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 sm:px-6">
       <h1 className="text-title text-foreground">Welcome</h1>
       <p className="mt-2 text-body text-muted">
-        Signed in as <span className="font-medium text-foreground">{user?.name}</span>.
-        Build out CRM modules here — the top bar stays on every page.
+        Signed in as <span className="font-medium text-foreground">{displayName}</span>.
       </p>
     </div>
   );

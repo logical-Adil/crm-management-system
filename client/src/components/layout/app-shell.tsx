@@ -7,9 +7,6 @@ import { useAuth } from "@/lib/auth";
 import { AppNavbar } from "./app-navbar";
 import { AppSidebar } from "./app-sidebar";
 
-/**
- * Wraps the app: navbar + left sidebar when authenticated, main content area.
- */
 export function AppShell({ children }: { children: ReactNode }) {
   const { isReady, isAuthenticated } = useAuth();
 
