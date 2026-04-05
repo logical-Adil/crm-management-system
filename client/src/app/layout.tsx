@@ -3,6 +3,8 @@ import { Inter } from "next/font/google";
 
 import "./globals.css";
 
+import { AppProviders } from "@/components/providers/app-providers";
+
 const inter = Inter({
   subsets: ["latin"],
   display: "swap",
@@ -11,7 +13,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "CRM",
-  description: "Multi-tenant CRM client",
+  description: "CRM client",
 };
 
 export default function RootLayout({
@@ -21,7 +23,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} font-sans`}>{children}</body>
+      <body className={`${inter.variable} font-sans`}>
+        <AppProviders>{children}</AppProviders>
+      </body>
     </html>
   );
 }
