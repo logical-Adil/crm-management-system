@@ -40,7 +40,32 @@ const noteSelect = {
 
 @Injectable()
 export class CustomerService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
+
+  /** Append-only audit row; `entityId` is always the customer UUID for these actions. */
+  private async logCustomerActivity(
+    tx: Prisma.TransactionClient,
+    organizationId: string,
+    customerId: string,
+    action:
+      | typeof ActivityAction.CUSTOMER_CREATED
+      | typeof ActivityAction.CUSTOMER_UPDATED
+      | typeof ActivityAction.CUSTOMER_DELETED
+      | typeof ActivityAction.CUSTOMER_RESTORED
+      | typeof ActivityAction.NOTE_ADDED
+      | typeof ActivityAction.CUSTOMER_ASSIGNED,
+    performedById: string,
+  ) {
+    await tx.activityLog.create({
+      data: {
+        organizationId,
+        entityType: 'customer',
+        entityId: customerId,
+        action,
+        performedById, // UserID
+      },
+    });
+  }
 
   private activeCountWhere(organizationId: string, assignedToId: string) {
     return {
@@ -68,11 +93,11 @@ export class CustomerService {
       deletedAt: null,
       ...(search
         ? {
-            OR: [
-              { name: { contains: search, mode: 'insensitive' } },
-              { email: { contains: search, mode: 'insensitive' } },
-            ],
-          }
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } },
+          ],
+        }
         : {}),
     };
 
@@ -127,6 +152,14 @@ export class CustomerService {
             },
             select: customerListSelect,
           });
+
+          await this.logCustomerActivity(
+            tx,
+            organizationId,
+            created.id,
+            ActivityAction.CUSTOMER_CREATED,
+            assignedToId,
+          );
 
           return created;
         } catch (e: unknown) {
@@ -204,15 +237,13 @@ export class CustomerService {
         select: noteSelect,
       });
 
-      await tx.activityLog.create({
-        data: {
-          organizationId,
-          entityType: 'customer',
-          entityId: customerId,
-          action: ActivityAction.NOTE_ADDED,
-          performedById: createdById,
-        },
-      });
+      await this.logCustomerActivity(
+        tx,
+        organizationId,
+        customerId,
+        ActivityAction.NOTE_ADDED,
+        createdById,
+      );
 
       return note;
     });
@@ -242,16 +273,25 @@ export class CustomerService {
     const email = dto.email !== undefined ? dto.email.toLowerCase() : undefined;
 
     try {
-      const updated = await this.prisma.customer.update({
-        where: { id },
-        data: {
-          ...(dto.name !== undefined && { name: dto.name }),
-          ...(email !== undefined && { email }),
-          ...(dto.phone !== undefined && { phone: dto.phone }),
-        },
-        select: customerListSelect,
+      return await this.prisma.$transaction(async tx => {
+        const updated = await tx.customer.update({
+          where: { id },
+          data: {
+            ...(dto.name !== undefined && { name: dto.name }),
+            ...(email !== undefined && { email }),
+            ...(dto.phone !== undefined && { phone: dto.phone }),
+          },
+          select: customerListSelect,
+        });
+        await this.logCustomerActivity(
+          tx,
+          organizationId,
+          id,
+          ActivityAction.CUSTOMER_UPDATED,
+          assignedToId,
+        );
+        return updated;
       });
-      return updated;
     } catch (e: unknown) {
       if (
         typeof e === 'object'
@@ -291,13 +331,21 @@ export class CustomerService {
       );
     }
 
-    const updated = await this.prisma.customer.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-      select: customerListSelect,
+    return this.prisma.$transaction(async tx => {
+      const updated = await tx.customer.update({
+        where: { id },
+        data: { deletedAt: new Date() },
+        select: customerListSelect,
+      });
+      await this.logCustomerActivity(
+        tx,
+        organizationId,
+        id,
+        ActivityAction.CUSTOMER_DELETED,
+        assignedToId,
+      );
+      return updated;
     });
-
-    return updated;
   }
 
   async restore(
@@ -337,6 +385,14 @@ export class CustomerService {
           data: { deletedAt: null },
           select: customerListSelect,
         });
+
+        await this.logCustomerActivity(
+          tx,
+          organizationId,
+          id,
+          ActivityAction.CUSTOMER_RESTORED,
+          assignedToId,
+        );
 
         return updated;
       },
@@ -404,6 +460,14 @@ export class CustomerService {
           data: { assignedToId: targetId },
           select: customerListSelect,
         });
+
+        await this.logCustomerActivity(
+          tx,
+          organizationId,
+          id,
+          ActivityAction.CUSTOMER_ASSIGNED,
+          currentAssigneeId,
+        );
 
         return updated;
       },
