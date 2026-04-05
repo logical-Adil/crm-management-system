@@ -11,9 +11,10 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 
-import { loginRequest, loginResponseToSession, logoutRequest } from "./auth-api";
+import { fetchCurrentUserRequest, meResponseToAuthUser } from "@/lib/users/users-api";
+
+import { signIn as signInApi, signOut as signOutApi } from "./auth-api";
 import { clearSession, loadSession, saveSession } from "./session";
-import type { LoginResponse } from "./types";
 import type { AuthSession, AuthUser } from "./types";
 
 type AuthContextValue = {
@@ -21,11 +22,30 @@ type AuthContextValue = {
   accessToken: string | null;
   isReady: boolean;
   isAuthenticated: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signOut: () => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+/** Avoid infinite "Loading..." if the API never responds (wrong URL, CORS, hung server). */
+const BOOTSTRAP_TIMEOUT_MS = 12000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const id = setTimeout(() => reject(new Error("timeout")), ms);
+    promise.then(
+      v => {
+        clearTimeout(id);
+        resolve(v);
+      },
+      e => {
+        clearTimeout(id);
+        reject(e);
+      },
+    );
+  });
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -33,15 +53,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    setSession(loadSession());
-    setIsReady(true);
-  }, []);
+    let cancelled = false;
 
-  const signIn = useCallback(
+    (async () => {
+      const stored = loadSession();
+      if (!stored?.accessToken) {
+        setSession(null);
+        setIsReady(true);
+        return;
+      }
+
+      try {
+        const me = await withTimeout(
+          fetchCurrentUserRequest(stored.accessToken),
+          BOOTSTRAP_TIMEOUT_MS,
+        );
+        if (cancelled) return;
+        const user = meResponseToAuthUser(me);
+        const next: AuthSession = { ...stored, user };
+        saveSession(next);
+        setSession(next);
+      } catch {
+        if (cancelled) return;
+        clearSession();
+        setSession(null);
+        if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+          router.replace("/login");
+        }
+      } finally {
+        // Always unblock the UI (login shell, pages). Omitting this when `cancelled` breaks
+        // React Strict Mode dev: cleanup sets cancelled before the first fetch settles.
+        setIsReady(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
+  const login = useCallback(
     async (email: string, password: string) => {
-      const res: LoginResponse = await loginRequest({ email, password });
-      const next = loginResponseToSession(res);
-      saveSession(next, { maxAgeSeconds: res.tokens.refresh.expiry });
+      const { session: next, maxAgeSeconds } = await signInApi(email, password);
+      saveSession(next, { maxAgeSeconds });
       setSession(next);
       router.push("/");
       router.refresh();
@@ -49,17 +103,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [router],
   );
 
-  const signOut = useCallback(async () => {
+  const logout = useCallback(async () => {
     const refreshToken = session?.refreshToken;
     clearSession();
     setSession(null);
-    try {
-      if (refreshToken) {
-        await logoutRequest(refreshToken);
-      }
-    } catch {
-      /* session already cleared; ignore network errors */
-    }
+    await signOutApi(refreshToken);
     router.push("/login");
     router.refresh();
   }, [session?.refreshToken, router]);
@@ -70,10 +118,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       accessToken: session?.accessToken ?? null,
       isReady,
       isAuthenticated: !!session?.accessToken,
-      signIn,
-      signOut,
+      login,
+      logout,
     }),
-    [session, isReady, signIn, signOut],
+    [session, isReady, login, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

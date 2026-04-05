@@ -28,3 +28,25 @@ export function loginResponseToSession(res: LoginResponse): AuthSession {
     refreshToken: res.tokens.refresh.token,
   };
 }
+
+export type SignInResult = {
+  session: AuthSession;
+  maxAgeSeconds: number;
+};
+
+export async function signIn(email: string, password: string): Promise<SignInResult> {
+  const res = await loginRequest({ email, password });
+  return {
+    session: loginResponseToSession(res),
+    maxAgeSeconds: res.tokens.refresh.expiry,
+  };
+}
+
+export async function signOut(refreshToken: string | null | undefined): Promise<void> {
+  if (!refreshToken) return;
+  try {
+    await logoutRequest(refreshToken);
+  } catch {
+    /* session may already be cleared client-side */
+  }
+}
