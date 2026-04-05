@@ -1,11 +1,17 @@
-generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
-}
+
+
 
 datasource db {
   provider = "postgresql"
 }
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+
+
+
 
 enum TokenType {
   REFRESH
@@ -147,3 +153,4 @@ model ActivityLog {
   @@index([entityType, entityId])
   @@map("activity_logs")
 }
+
