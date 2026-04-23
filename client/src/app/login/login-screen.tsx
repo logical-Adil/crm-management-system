@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 
 import { ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { env } from '@/lib/env';
 import { loginSchema, type LoginFormValues } from '@/lib/validations/login.schema';
 import { loginInputError, loginInputNormal, loginSubmitButton } from '@/styles/form-classes';
 
@@ -81,7 +82,7 @@ export function LoginScreen() {
             <div className="rounded-t-[14px] bg-surface px-8 pb-0 pt-8">
               <div className="flex flex-col items-center gap-4 text-center">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 shadow-inner ring-1 ring-slate-200/80">
-                  <Image src="/logo.png" alt="" width={40} height={40} className="h-10 w-10 object-contain" fetchPriority="high" />
+                  <Image src={`${env.basePath}/logo.png`} alt="" width={40} height={40} className="h-10 w-10 object-contain" fetchPriority="high" unoptimized />
                 </div>
                 <div>
                   <h1 className="text-2xl font-semibold tracking-tight text-foreground">Sign in</h1>

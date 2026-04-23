@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { useAuth } from "@/lib/auth";
+import { env } from "@/lib/env";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -42,12 +43,13 @@ export function AppNavbar() {
         >
           <span className="relative flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-slate-50 to-slate-100 ring-1 ring-slate-200/80">
             <Image
-              src="/logo.png"
+              src={`${env.basePath}/logo.png`}
               alt="CRM"
               width={28}
               height={28}
               className="h-7 w-7 object-contain"
               fetchPriority="high"
+              unoptimized
             />
           </span>
           <span className="text-heading font-semibold tracking-tight">CRM</span>
