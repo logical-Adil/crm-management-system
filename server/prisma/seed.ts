@@ -97,8 +97,18 @@ async function ensureAcmeUsers(
     });
 
     if (existing) {
+      await prisma.user.update({
+        where: { id: existing.id },
+        data: {
+          name,
+          password: hashedPassword,
+          role: UserRole.admin,
+          organizationId,
+          isActive: true,
+        },
+      });
       adminIdByEmail.set(email, existing.id);
-      console.log(`  Skip admin: ${email}`);
+      console.log(`  Updated admin password: ${email}`);
       usersSkipped += 1;
       continue;
     }
@@ -134,7 +144,18 @@ async function ensureAcmeUsers(
     });
 
     if (existing) {
-      console.log(`  Skip member: ${email}`);
+      await prisma.user.update({
+        where: { id: existing.id },
+        data: {
+          name,
+          password: hashedPassword,
+          role: UserRole.member,
+          organizationId,
+          isActive: true,
+          createdById: admin1Id,
+        },
+      });
+      console.log(`  Updated member password: ${email}`);
       usersSkipped += 1;
       continue;
     }
@@ -324,6 +345,18 @@ async function seedOtherOrgsLight(
         select: { id: true },
       });
       console.log(`  Created admin: ${adminEmail} → ${block.orgName}`);
+    } else {
+      await prisma.user.update({
+        where: { id: adminRow.id },
+        data: {
+          name: block.admin.name,
+          password: hashedPassword,
+          role: UserRole.admin,
+          organizationId: organization.id,
+          isActive: true,
+        },
+      });
+      console.log(`  Updated admin password: ${adminEmail} → ${block.orgName}`);
     }
 
     const memEmail = block.member.email.toLowerCase();
@@ -344,6 +377,19 @@ async function seedOtherOrgsLight(
         },
       });
       console.log(`  Created member: ${memEmail} → ${block.orgName}`);
+    } else {
+      await prisma.user.update({
+        where: { id: memExisting.id },
+        data: {
+          name: block.member.name,
+          password: hashedPassword,
+          role: UserRole.member,
+          organizationId: organization.id,
+          isActive: true,
+          createdById: adminRow.id,
+        },
+      });
+      console.log(`  Updated member password: ${memEmail} → ${block.orgName}`);
     }
 
     const custEmail = `demo-lead@${block.orgName.split(' ')[0].toLowerCase()}.seed`;
