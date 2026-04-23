@@ -24,7 +24,10 @@ function tanstackLegacyAliases(): Record<string, string> {
   };
 }
 
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+
 const nextConfig: NextConfig = {
+  basePath,
   transpilePackages: ["@tanstack/react-query", "@tanstack/query-core"],
   webpack(config) {
     const aliases = tanstackLegacyAliases();

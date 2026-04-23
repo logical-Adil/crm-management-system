@@ -8,6 +8,10 @@ export const env = {
   appUrl: trimTrailingSlash(
     process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
   ),
+  basePath:
+    process.env.NEXT_PUBLIC_BASE_PATH && process.env.NEXT_PUBLIC_BASE_PATH !== "/"
+      ? process.env.NEXT_PUBLIC_BASE_PATH.replace(/\/+$/, "")
+      : "",
   apiBaseUrl: trimTrailingSlash(
     process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api/v1",
   ),
